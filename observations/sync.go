@@ -122,7 +122,7 @@ func FetchObservations() {
 	// Get current time.
 	currentTime := time.Now()
 	var resultTimeUpperBound = currentTime
-	var resultTimeLowerBound = currentTime.Add(-time.Minute * 1)
+	var resultTimeLowerBound = currentTime.Add(-time.Minute * 5)
 	var syncCounter = 0
 	for {
 		log.Info.Printf("Synced observations %d times.", syncCounter)
