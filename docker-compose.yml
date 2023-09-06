@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  # Sink stack
+  sink:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    env_file: .env
+    volumes:
+      # Mount a volume under the shared nginx dir to serve static files
+      - ./static/:/usr/share/nginx/html/
+    restart: unless-stopped
+  sink-nginx:
+    image: nginx:latest
+    hostname: sink-nginx
+    volumes:
+      # Mount the same volume to serve static files
+      - ./static/:/usr/share/nginx/html/:ro
+    ports:
+      - 80:80
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    name: prometheus-sink-data
+  
