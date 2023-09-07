@@ -1,6 +1,7 @@
 package observations
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -8,6 +9,7 @@ import (
 	"sink/env"
 	"sink/log"
 	"sink/things"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,13 +110,13 @@ func processMessage(msg mqtt.Message) {
 
 // Store an observation in a file.
 func storeObservation(observation Observation, layerName string, thingName string, mqttObservation bool) bool {
-	fileSuffix := "http"
+	protocol := "http"
 
 	if mqttObservation {
-		fileSuffix = "mqtt"
+		protocol = "mqtt"
 	}
 
-	fileName := fmt.Sprintf("%s-%s-%s.csv", thingName, layerName, fileSuffix)
+	fileName := fmt.Sprintf("%s-%s.csv", thingName, layerName)
 
 	// Check if directory for thing exists
 	directory_path := fmt.Sprintf("%s/sink/%s/", env.StaticPath, thingName)
@@ -127,7 +129,7 @@ func storeObservation(observation Observation, layerName string, thingName strin
 	filePath := fmt.Sprintf("%s/sink/%s/%s", env.StaticPath, thingName, fileName)
 	lock, _ := sinkFileLocks.LoadOrStore(filePath, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
-	file, openErr := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	file, openErr := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if openErr != nil {
 		panic("Could not open file " + filePath + " - error: " + openErr.Error())
 	}
@@ -140,14 +142,39 @@ func storeObservation(observation Observation, layerName string, thingName strin
 
 	// If file is empty, write header
 	if fileInfo.Size() == 0 {
-		csvHeader := "phenomenonTime,resultTime,receivedTime,result"
+		csvHeader := "phenomenonTime,resultTime,receivedTime,result,source"
 		if _, writeErr := file.WriteString(csvHeader + "\n"); writeErr != nil {
 			panic("Could not write header to file " + filePath + " - error: " + writeErr.Error())
 		}
 	}
 
+	phenonemonTime := observation.PhenomenonTime.Format(time.RFC3339Nano)
+
+	// Iterate over lines
+	scanner := bufio.NewScanner(file)
+	alreadyExists := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		// If there is already an observation with the same phenomenon time, we don't need to add the observation (again).
+		if strings.HasPrefix(line, fmt.Sprintf("%s", phenonemonTime)) {
+			alreadyExists = true
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+
+	// If observation already exists, skip
+	if alreadyExists {
+		lock.(*sync.Mutex).Unlock()
+		file.Close()
+		return true
+	}
+
 	// Write observation to file
-	csvRow := fmt.Sprintf("%s,%s,%s,%d", observation.PhenomenonTime.Format(time.RFC3339Nano), observation.ResultTime.Format(time.RFC3339Nano), observation.ReceivedTime.Format(time.RFC3339Nano), observation.Result)
+	csvRow := fmt.Sprintf("%s,%s,%s,%d,%s", phenonemonTime, observation.ResultTime.Format(time.RFC3339Nano), observation.ReceivedTime.Format(time.RFC3339Nano), observation.Result, protocol)
 	if _, writeErr := file.WriteString(csvRow + "\n"); writeErr != nil {
 		panic("Could not write observation to file " + filePath + " - error: " + writeErr.Error())
 	}
@@ -169,6 +196,8 @@ func ConnectObservationListener() {
 		return true
 	})
 
+	log.Info.Println("Topic count:", len(topics))
+
 	// Create a new client for every 1000 subscriptions.
 	// Otherwise messages will queue up after some time, since the client
 	// is not parallelized enough. This is a workaround for the issue.
@@ -176,7 +205,7 @@ func ConnectObservationListener() {
 	var client mqtt.Client
 	var wg sync.WaitGroup
 	for i, topic := range topics {
-		if (i % 1000) == 0 {
+		if (i % 10000) == 0 {
 			wg.Wait()
 			opts := mqtt.NewClientOptions()
 			opts.AddBroker(env.SensorThingsObservationMqttUrl)
