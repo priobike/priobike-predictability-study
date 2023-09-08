@@ -290,7 +290,7 @@ func ConnectObservationListener() {
 
 		wg.Add(1)
 		// Wait 40ms between each subscription to avoid overloading the mqtt broker.
-		time.Sleep(40 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		go func(topic string) {
 			defer wg.Done()
 
