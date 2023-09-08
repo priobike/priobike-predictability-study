@@ -169,8 +169,8 @@ func storeObservation(observation Observation, layerName string, thingName strin
 		if _, writeErr := file.WriteString(csvHeader + "\n"); writeErr != nil {
 			panic("Could not write header to file " + filePath + " - error: " + writeErr.Error())
 		}
-	} else {
-		// Check for duplicates.
+	} else if !mqttObservation {
+		// Check for duplicates if it is a http observation.
 		// If there is already an observation with the same phenomenon time, we don't need to add the observation (again).
 
 		// Reading the data is copied from os.ReadFile() method:
