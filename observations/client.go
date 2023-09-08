@@ -126,10 +126,16 @@ func storeObservation(observation Observation, layerName string, thingName strin
 	}
 
 	// Write to file and create if not exists
+	var fileFlag int
+	if mqttObservation {
+		fileFlag = os.O_APPEND | os.O_CREATE | os.O_WRONLY
+	} else {
+		fileFlag = os.O_APPEND | os.O_CREATE | os.O_RDWR
+	}
 	filePath := fmt.Sprintf("%s/sink/%s/%s", env.StaticPath, thingName, fileName)
 	lock, _ := sinkFileLocks.LoadOrStore(filePath, &sync.Mutex{})
 	lock.(*sync.Mutex).Lock()
-	file, openErr := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+	file, openErr := os.OpenFile(filePath, fileFlag, 0666)
 	if openErr != nil {
 		panic("Could not open file " + filePath + " - error: " + openErr.Error())
 	}
@@ -249,7 +255,7 @@ func ConnectObservationListener() {
 	var client mqtt.Client
 	var wg sync.WaitGroup
 	for i, topic := range topics {
-		if (i % 10000) == 0 {
+		if (i % 1000) == 0 {
 			wg.Wait()
 			opts := mqtt.NewClientOptions()
 			opts.AddBroker(env.SensorThingsObservationMqttUrl)
