@@ -191,11 +191,12 @@ func fetchMostRecentObservationsDb(datastreamIds []int) {
 		// If cycle %1000 == 0, print average time per cycle.
 		if cycle%1000 == 0 {
 			elapsed := time.Since(start)
-			log.Info.Printf("Fetching a single datastream took on average %s, %d of %d datastreams fetched. For %d of %d datastreams there were no previous observations existent.", elapsed/10000, datastreamIdx, len(datastreamIds), noPreviousObservationsCount, 10000)
+			log.Info.Printf("Fetching 10 datastreams (parallel) took on average %s, %d of %d datastreams fetched. For %d of %d datastreams there were no previous observations existent.", elapsed/1000, datastreamIdx, len(datastreamIds), noPreviousObservationsCount, 10000)
 			start = time.Now()
 			atomic.StoreUint64(&noPreviousObservationsCount, 0)
 		}
 		// Make some parallel requests to speed things up.
+		startSingle := time.Now()
 		var wg sync.WaitGroup
 		for i := 0; i < 10; i++ {
 			wg.Add(1)
@@ -204,15 +205,10 @@ func fetchMostRecentObservationsDb(datastreamIds []int) {
 				if cycle >= len(datastreamIdsLists[i]) {
 					return
 				}
-				startSingle := time.Now()
+
 				notFound := fetchRecentObservationsPageDb(clients[i], datastreamIdsLists[i][cycle])
 				if notFound {
 					atomic.AddUint64(&noPreviousObservationsCount, 1)
-				}
-				elapsedSingle := time.Since(startSingle)
-				if elapsedSingle < 30*time.Millisecond {
-					// Wait 30ms between each request to avoid overloading the SensorThings API.
-					time.Sleep(30*time.Millisecond - elapsedSingle)
 				}
 			}(i, cycle)
 			datastreamIdx++
@@ -222,6 +218,11 @@ func fetchMostRecentObservationsDb(datastreamIds []int) {
 			break
 		}
 		cycle++
+		elapsedSingle := time.Since(startSingle)
+		if elapsedSingle < 70*time.Millisecond {
+			// Add delay between each cycle if we fetch to fast (because of good internet) to avoid overloading the SensorThings API.
+			time.Sleep(70*time.Millisecond - elapsedSingle)
+		}
 	}
 
 	log.Info.Println("Fetched most recent observations.")
