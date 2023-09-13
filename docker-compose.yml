@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
       context: .
     env_file: .env
+    depends_on:
+      - postgres
     volumes:
       # Mount a volume under the shared nginx dir to serve static files
       - ./static/:/usr/share/nginx/html/
@@ -19,8 +21,16 @@ services:
     ports:
       - 80:80
     restart: unless-stopped
+  postgres:
+    image: postgres:latest
+    hostname: postgres
+    env_file: .env
+    volumes:
+      - postgres-sink-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    ports:
+      - 5432:5432
 
 volumes:
-  prometheus_data:
-    name: prometheus-sink-data
-  
+  postgres-sink-data:
+    name: postgres-sink-data

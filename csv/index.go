@@ -1,4 +1,4 @@
-package observations
+package csv
 
 import (
 	"encoding/json"

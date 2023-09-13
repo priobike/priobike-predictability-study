@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sink/env"
 	"sink/log"
 	"sync"
@@ -33,6 +32,9 @@ var DatastreamMqttTopics = &sync.Map{}
 
 // A map that points Datastream MQTT topics to Thing names.
 var Datastreams = &sync.Map{}
+
+// A map that contains all datastream IDs by their MQTT topic.
+var DatastreamIds = &sync.Map{}
 
 func syncThingsPage(page int) (more bool) {
 	elementsPerPage := 100
@@ -77,14 +79,15 @@ func syncThingsPage(page int) (more bool) {
 		for _, d := range t.Datastreams {
 			DatastreamMqttTopics.Store(d.MqttTopic(), d.Properties.LayerName)
 			Datastreams.Store(d.MqttTopic(), t.Name)
+			DatastreamIds.Store(d.MqttTopic(), d.IotId)
 		}
 
-		// Create the directory for the thing if it does not exist.
-		directory_path := fmt.Sprintf("%s/sink/%s/", env.StaticPath, t.Name)
-		_, err := os.Stat(directory_path)
-		if os.IsNotExist(err) {
-			os.Mkdir(directory_path, 0777)
-		}
+		// Create the directory for the thing if it does not exist. (This is not needed anymore, because we save to db instead of csv.)
+		// directory_path := fmt.Sprintf("%s/sink/%s/", env.StaticPath, t.Name)
+		// _, err := os.Stat(directory_path)
+		// if os.IsNotExist(err) {
+		// 	os.Mkdir(directory_path, 0777)
+		// }
 	}
 
 	return thingsResponse.NextUri != nil

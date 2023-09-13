@@ -1,4 +1,4 @@
-package observations
+package structs
 
 import (
 	"encoding/json"
@@ -16,11 +16,8 @@ type Observation struct {
 	// Note: This isn't actually in the JSON, but we add it ourselves.
 	// With this we can calculate the delay of the observation.
 	ReceivedTime time.Time `json:"receivedTime"`
-	// Note: The result can be a string or a number.
-	// In our case, we only use observations with numbers < 255.
-	// This means that we can use a byte to store the result.
-	// This saves us a lot of memory and makes the code faster.
-	Result byte `json:"result"`
+	// The result of the observation.
+	Result int16 `json:"result"`
 }
 
 // Unmarshal an observation from JSON.
@@ -48,18 +45,17 @@ func (o *Observation) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	switch result.(type) {
+	switch r := result.(type) {
 	case bool:
-		if result.(bool) {
+		if r {
 			o.Result = 1
 		} else {
 			o.Result = 0
 		}
 	case int:
-		o.Result = byte(result.(int))
+		o.Result = int16(r)
 	case float64:
-		intResult := int(result.(float64))
-		o.Result = byte(intResult)
+		o.Result = int16(r)
 	default:
 		panic("Result is not a bool, float64 or int. Result is of type: " + fmt.Sprintf("%T", result) + " and has value: " + fmt.Sprintf("%v", result))
 	}

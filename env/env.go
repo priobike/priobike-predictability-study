@@ -26,3 +26,8 @@ var SensorThingsBaseUrl = loadRequired("SENSORTHINGS_URL")
 
 // The URL to the observation MQTT broker from the environment variable.
 var SensorThingsObservationMqttUrl = loadRequired("SENSORTHINGS_MQTT_URL")
+
+var PostgresUser = loadRequired("POSTGRES_USER")
+var PostgresPassword = loadRequired("POSTGRES_PASSWORD")
+var PostgresDb = loadRequired("POSTGRES_DB")
+var PostgresHost = loadRequired("POSTGRES_HOST")
