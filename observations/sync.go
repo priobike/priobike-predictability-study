@@ -210,9 +210,9 @@ func fetchMostRecentObservationsDb(datastreamIds []int) {
 					atomic.AddUint64(&noPreviousObservationsCount, 1)
 				}
 				elapsedSingle := time.Since(startSingle)
-				if elapsedSingle < 16*time.Millisecond {
-					// Wait 16ms between each request to avoid overloading the SensorThings API.
-					time.Sleep(16*time.Millisecond - elapsedSingle)
+				if elapsedSingle < 30*time.Millisecond {
+					// Wait 30ms between each request to avoid overloading the SensorThings API.
+					time.Sleep(30*time.Millisecond - elapsedSingle)
 				}
 			}(i, cycle)
 			datastreamIdx++
