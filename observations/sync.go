@@ -204,9 +204,15 @@ func fetchMostRecentObservationsDb(datastreamIds []int) {
 				if cycle >= len(datastreamIdsLists[i]) {
 					return
 				}
+				startSingle := time.Now()
 				notFound := fetchRecentObservationsPageDb(clients[i], datastreamIdsLists[i][cycle])
 				if notFound {
 					atomic.AddUint64(&noPreviousObservationsCount, 1)
+				}
+				elapsedSingle := time.Since(startSingle)
+				if elapsedSingle < 16*time.Millisecond {
+					// Wait 16ms between each request to avoid overloading the SensorThings API.
+					time.Sleep(16*time.Millisecond - elapsedSingle)
 				}
 			}(i, cycle)
 			datastreamIdx++
