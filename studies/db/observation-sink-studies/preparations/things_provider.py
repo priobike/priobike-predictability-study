@@ -4,9 +4,6 @@ import os
 class ThingsProvider:
     """
     Use this to get or filter things and datastreams from the things.json file.
-    Examples:
-    things = ThingsProvider().filter_only_bike_things().get_things()
-    datastream_ids = ThingsProvider().filter_only_bike_things().filter_only_primary_signal_datastreams().get_datastream_ids()
     NOTE: The filters are not reversible. Create a new ThingsProvider object if you want to use a different filter on the whole things list.
     """
     def __init__(self):
@@ -57,12 +54,12 @@ class ThingsProvider:
                     datastreams.append(datastream)
             self.things[i]["Datastreams"] = datastreams
             
-    def filter_only_program_signal_datastreams(self):
+    def filter_only_signal_program_datastreams(self):
         for i in range(len(self.things)):
             datastreams = []
             thing = self.things[i]
             for datastream in thing["Datastreams"]:
-                if datastream["properties"]["layerName"] == "program_signal":
+                if datastream["properties"]["layerName"] == "signal_program":
                     datastreams.append(datastream)
             self.things[i]["Datastreams"] = datastreams
         
