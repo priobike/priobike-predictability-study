@@ -12,7 +12,8 @@ CURRENT_IDENTIFIER = 'example_timerange' # Needs to be one of the keys in TIMERA
 OBSERVATIONS_CSV_FILE = f'outputs/{CURRENT_IDENTIFIER}_observations.csv'
 RECONSTRUCTED_CYCLES_JSON_FILE = f'outputs/{CURRENT_IDENTIFIER}_reconstructed_cycles.json'
 CLEANED_CYCLES_JSON_FILE = f'outputs/{CURRENT_IDENTIFIER}_cleaned_cycles.json'
+CLEANUP_STATS_JSON_FILE = f'outputs/{CURRENT_IDENTIFIER}_cleanup_stats.json'
 
 TIMERANGES = {
-    'example_timerange': time_range_provider.TimeRangeProvider(False).get_example_hour_timestamp_range()
+    'example_timerange': [time_range_provider.TimeRangeProvider(False).get_example_hour_timestamp_range()]
 }
