@@ -78,3 +78,34 @@ class ThingsProvider:
             datastream_ids.append(datastream["@iot.id"])
         print(f"Amount of datastream ids: {len(datastream_ids)}")
         return datastream_ids
+    
+    def get_coordinates_by_thing_name(self):
+        thing_locations = {}
+        for thing in self.things:
+            try:
+                thing_locations[thing["name"]] = thing["Locations"][0]["location"]["geometry"]["coordinates"][0][0]
+            except:
+                location_found = False
+                # Try to extract location from observed area from datastreams
+                for datastream in thing["Datastreams"]:
+                    if "observedArea" not in datastream:
+                        continue
+                    if not isinstance(datastream["observedArea"]["coordinates"][0], list):
+                        thing_locations[thing["name"]] = datastream["observedArea"]["coordinates"]
+                    else:
+                        thing_locations[thing["name"]] = datastream["observedArea"]["coordinates"][0]
+                    location_found = True
+                    break
+                if not location_found:
+                    path = os.path.dirname(os.path.abspath(__file__))
+                    with open(f"{path}/last_thing_with_no_location_data.json", 'w') as fp:
+                        json.dump(thing, fp)
+                    print(f"Location not found for thing {thing['name']}. Look at last_thing_with_no_location_data.json for more information.")
+        return thing_locations
+    
+    def get_map_from_datastream_ids_to_thing_names_and_layer_names(self):
+        map = {}
+        for thing in self.things:
+            for datastream in thing["Datastreams"]:
+                map[datastream["@iot.id"]] = (thing["name"], datastream["properties"]["layerName"])
+        return map

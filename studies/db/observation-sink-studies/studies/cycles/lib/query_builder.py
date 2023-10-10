@@ -1,4 +1,4 @@
-def get_relevant_observations_for_given_timeranges(datastream_ids: list, timeranges: list):
+def get_relevant_observations_for_given_timeranges(datastream_ids: list, timeranges: list, limit: int):
     """
     Returns a query that returns the observations for the given datastream IDs and timeranges.
     The timeranges are given as a list of tuples, where each tuple contains the start and end time of the timerange.
@@ -21,12 +21,40 @@ def get_relevant_observations_for_given_timeranges(datastream_ids: list, timeran
     timeranges_string = timeranges_string + ")"
     query = """
     SELECT
-        *
+        phenomenon_time,result,datastream_id
     FROM
         observation_dbs
     WHERE
         datastream_id IN """ + ids_string + """
         AND """ + timeranges_string + """
+    LIMIT
+        """ + limit + """
+    """
+    
+    return query
+
+def get_relevant_observations(datastream_ids: list, limit: int):
+    """
+    Returns a query that returns all observations (until the limit is reached) for the given datastream IDs.
+    """
+    
+    ids_string = "("
+    for datastream_id in datastream_ids:
+        ids_string = ids_string + str(datastream_id) + ","
+    ids_string = ids_string[:-1]
+    ids_string = ids_string + ")"
+    
+    query = """
+    SELECT
+        phenomenon_time,result,datastream_id
+    FROM
+        observation_dbs
+    WHERE
+        datastream_id IN """ + ids_string + """
+    LIMIT
+        """ + limit + """
+    ORDER BY
+        phenomenon_time ASC
     """
     
     return query

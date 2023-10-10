@@ -4,7 +4,7 @@ from preparations import things_provider
 
 def structure_observation_data(csv_file: str) -> dict:
     """
-    Converts our csv observation file to a dict which maps thing names to a dict of the three datastream types
+    Converts our csv observation file to json files for each thing where each contains a dict of the three datastream types
     (primary_signal, cycle_second, signal_program) with a dataframe of their corresponding observations for that datastream and thing.
     
     {
@@ -22,8 +22,7 @@ def structure_observation_data(csv_file: str) -> dict:
 
     # Sort by phenonemon_time
     df = df.sort_values(by=['phenomenon_time'])
-
-    # Directory of things where each thing ID maps to a dict of the three datastream types for that thing
+    
     thing_datastreams = {}
 
     # Split dataframe such that we have one dataframe per datastream_id
@@ -63,7 +62,7 @@ def structure_observation_data(csv_file: str) -> dict:
     
     return thing_datastreams
 
-def reconstruct_cycles(datastreams: dict):
+def reconstruct_cycles(datastreams: dict, last_result_before_first_known_primary_signal: int=None):
     """
     datastreams should be a dict with at least the following structure:
     {
@@ -95,28 +94,44 @@ def reconstruct_cycles(datastreams: dict):
     # Current looked at primary signal observation
     primary_signal_index = 0
     
-    # We start at the first received primary signal and go on second by second.
-    # During this process we construct cycles and throw away primary signals that don't belong to a cycle.
-    ticker_second = primary_signal_observations.iloc[primary_signal_index]['phenomenon_time']
-    # The result of the current primary signal
-    result = primary_signal_observations.iloc[primary_signal_index]['result']
+    # Current looked at cycle second observation
+    cycle_second_index = 0
     
     # The chances are very low that we only receive one primary signal (if none are received at all we already have an early return).
     # Thus if this happens we throw an exception to indicate that there might be a bug in the code leading to this.
     if primary_signal_index + 1 >= primary_signal_observation_count:
-        Exception('Not enough primary signals to reconstruct cycles. Maybe a bug in the code? -> Look at comment in code.')
+        raise Exception('Not enough primary signals to reconstruct cycles. Maybe a bug in the code? -> Look at comment in code.')
+    
+    first_primary_signal_phenonmenon_time = primary_signal_observations.iloc[primary_signal_index]['phenomenon_time']
+    first_cycle_second_phenonmenon_time = cycle_second_observations.iloc[cycle_second_index]['phenomenon_time']
+    
+    # If the first primary signal observation is after the first cycle second observation,
+    # we use, if available, the last primary signal of the last window.
+    if first_primary_signal_phenonmenon_time > first_cycle_second_phenonmenon_time and last_result_before_first_known_primary_signal is not None:
+        result = last_result_before_first_known_primary_signal
+        # The phenomenon time of the next primary signal observation (used to look ahead when we switch to the next primary signal observation).
+        upcoming_primary_signal_observation_phenomenon_time = primary_signal_observations.iloc[primary_signal_index]['phenomenon_time']
+        # No current primary signal observation
+        primary_signal_index = None
+    else:
+        # The result of the current primary signal
+        result = primary_signal_observations.iloc[primary_signal_index]['result']
+        # The phenomenon time of the next primary signal observation (used to look ahead when we switch to the next primary signal observation).
+        upcoming_primary_signal_observation_phenomenon_time = primary_signal_observations.iloc[primary_signal_index + 1]['phenomenon_time']
         
-    # The phenomenon time of the next primary signal observation (used to look ahead when we switch to the next primary signal observation).
-    upcoming_primary_signal_observation_phenomenon_time = primary_signal_observations.iloc[primary_signal_index + 1]['phenomenon_time']
+    # We start at the first received primary signal or cycle second observation and go on second by second.
+    # During this process we construct cycles and throw away primary signals that don't belong to a cycle.
+    # If the primary signal came before the cycle it's important to start there such that we know the result one the cycle starts.
+    # If the cycle came before the primary signal we start there because we don't know the result of the primary signal before the cycle starts.
+    # We only try to use the result last primary signal of the previous window.
+    ticker_second = min(first_primary_signal_phenonmenon_time, first_cycle_second_phenonmenon_time)
     
     # Before we reconstruct the programs we first reconstruct all cycles regardless of the programs.
     cycles = []
     
     # Where we save the data (start time, end time, primary signal observation results) of the current cycle.
     current_cycle = None
-
-    # Current looked at cycle second observation
-    cycle_second_index = 0
+    
     # Start and end phenomenon time of the currently looked at cycle
     cycle_time_start = None
     cycle_time_end = None
@@ -153,7 +168,10 @@ def reconstruct_cycles(datastreams: dict):
         # We reached a time with the ticker where we have a new primary signal observation.
         if upcoming_primary_signal_observation_phenomenon_time is not None and ticker_second >= upcoming_primary_signal_observation_phenomenon_time:
             # Update current primary signal.
-            primary_signal_index += 1
+            if primary_signal_index is None:
+                primary_signal_index = 0
+            else:
+                primary_signal_index += 1
             result = primary_signal_observations.iloc[primary_signal_index]['result']
             # Check if there are still primary signal observations left and update the upcoming primary signal observation phenonemon time accordingly.
             if primary_signal_index + 1 >= primary_signal_observation_count:
@@ -164,7 +182,7 @@ def reconstruct_cycles(datastreams: dict):
         # If the current cycle is none (either because it is the first cycle or because we just saved the last cycle) we create a new cycle,
         # but only if the ticker is at the start of the current cycle.
         # This is checked to assure that we only create cycles where we have corresponding primary signal observation data.
-        if current_cycle is None and ticker_second == cycle_time_start:
+        if current_cycle is None and ticker_second == cycle_time_start and result is not None:
             current_cycle = {
                 'start': cycle_time_start,
                 'end': cycle_time_end,
