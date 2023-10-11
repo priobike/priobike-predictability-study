@@ -127,7 +127,7 @@ def reconstruct_cycles(datastreams: dict, last_result_before_first_known_primary
     ticker_second = min(first_primary_signal_phenonmenon_time, first_cycle_second_phenonmenon_time)
     
     # Before we reconstruct the programs we first reconstruct all cycles regardless of the programs.
-    cycles = []
+    cycles: list[Cycle] = []
     
     # Where we save the data (start time, end time, primary signal observation results) of the current cycle.
     current_cycle = None
@@ -183,11 +183,7 @@ def reconstruct_cycles(datastreams: dict, last_result_before_first_known_primary
         # but only if the ticker is at the start of the current cycle.
         # This is checked to assure that we only create cycles where we have corresponding primary signal observation data.
         if current_cycle is None and ticker_second == cycle_time_start and result is not None:
-            current_cycle = {
-                'start': cycle_time_start,
-                'end': cycle_time_end,
-                'results': []
-            }
+            current_cycle = Cycle(start=cycle_time_start, end=cycle_time_end)
         
         # Fill up the results of the current cycle with the current primary signal observation result until:
         # option 1: we reach the end of the current cycle
@@ -204,7 +200,7 @@ def reconstruct_cycles(datastreams: dict, last_result_before_first_known_primary
             diff = min(diff_upcoming, diff_cycle_end)
             results_to_append = [result] * diff
             
-            current_cycle['results'].extend(results_to_append)
+            current_cycle.results.extend(results_to_append)
     
             ticker_second += diff
         else:

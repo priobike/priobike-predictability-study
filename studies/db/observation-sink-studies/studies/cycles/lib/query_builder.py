@@ -27,9 +27,9 @@ def get_relevant_observations_for_given_timeranges(datastream_ids: list, timeran
     WHERE
         datastream_id IN """ + ids_string + """
         AND """ + timeranges_string + """
-    LIMIT
-        """ + limit + """
-    """
+    ORDER BY
+        phenomenon_time ASC
+    LIMIT """ + str(limit)
     
     return query
 
@@ -51,10 +51,8 @@ def get_relevant_observations(datastream_ids: list, limit: int):
         observation_dbs
     WHERE
         datastream_id IN """ + ids_string + """
-    LIMIT
-        """ + limit + """
     ORDER BY
         phenomenon_time ASC
-    """
+    LIMIT """ + str(limit)
     
     return query
