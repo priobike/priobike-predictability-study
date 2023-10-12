@@ -50,7 +50,7 @@ def get_relevant_observations(datastream_ids: list, limit: int):
     FROM
         observation_dbs
     WHERE
-        datastream_id IN """ + ids_string + """
+        datastream_id IN """ + ids_string + """ AND phenomenon_time >= 1694649600
     ORDER BY
         phenomenon_time ASC
     LIMIT """ + str(limit)

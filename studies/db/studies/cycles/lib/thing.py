@@ -39,6 +39,25 @@ def phase_wise_distance(cycle_1, cycle_2):
         
     return distance
 
+def phase_wise_distance_relative(cycle_1, cycle_2):
+    distance = 0
+    length = max(len(cycle_1), len(cycle_2))
+    for i in range(length):
+        if i >= len(cycle_2):
+            distance += 1
+            continue
+        
+        if i >= len(cycle_1):
+            distance += 1
+            continue
+        
+        if cycle_1[i] != cycle_2[i]:
+            distance += 1
+            continue
+        distance += 0
+        
+    return distance / length
+
 def structure_observation_data(csv_file: str) -> dict:
     """
     Converts our csv observation file to json files for each thing where each contains a dict of the three datastream types
@@ -114,9 +133,9 @@ def reconstruct_cycles_algo(datastreams: dict, last_result_before_first_known_pr
     cycle_second_missing = False
     
     # Check if required datastreams are present. Early return if not.
-    if 'primary_signal' not in datastreams:
+    if 'primary_signal' not in datastreams or len(datastreams['primary_signal'].index) == 0:
         primary_signal_missing = True
-    if 'cycle_second' not in datastreams:
+    if 'cycle_second' not in datastreams or len(datastreams['cycle_second'].index) == 0:
         cycle_second_missing = True
     if primary_signal_missing or cycle_second_missing:
         return None, 0, primary_signal_missing, cycle_second_missing
@@ -137,7 +156,10 @@ def reconstruct_cycles_algo(datastreams: dict, last_result_before_first_known_pr
     # The chances are very low that we only receive one primary signal (if none are received at all we already have an early return).
     # Thus if this happens we throw an exception to indicate that there might be a bug in the code leading to this.
     if primary_signal_index + 1 >= primary_signal_observation_count:
-        raise Exception('Not enough primary signals to reconstruct cycles. Maybe a bug in the code? -> Look at comment in code.')
+        print(datastreams['primary_signal'].to_string())
+        print(datastreams['cycle_second'].to_string())
+        print('Not enough primary signals to reconstruct cycles. Maybe a bug in the code? -> Look at comment in code.')
+        return None, 0, primary_signal_missing, cycle_second_missing
     
     first_primary_signal_phenonmenon_time = primary_signal_observations.iloc[primary_signal_index]['phenomenon_time']
     first_cycle_second_phenonmenon_time = cycle_second_observations.iloc[cycle_second_index]['phenomenon_time']
@@ -293,7 +315,6 @@ class Thing:
         self.total_invalid_cycles_missing = 0
         
         
-        
     def add_observation(self, layer_name, phenomenon_time, result):
         self.observations_by_datastream[layer_name].loc[len(self.observations_by_datastream[layer_name])] = [phenomenon_time, result]
         self.ticker += 1
@@ -302,6 +323,8 @@ class Thing:
             self.ticker = 0
             
     def update_metrics(self):
+        if self.cycles is None or len(self.cycles) == 0:
+            return
         for i in range(len(self.cycles) - 1):
             cycle_1 = self.cycles[i]
             cycle_2 = self.cycles[i + 1]
@@ -311,7 +334,9 @@ class Thing:
             weekday = date_time.weekday()
             hour = date_time.hour
             self.metrics[weekday][hour]
-            jl.OnlineStats.fit_b(self.metrics[weekday][hour], distance)
+            current = self.metrics[weekday][hour]
+            jl.OnlineStats.fit_b(current, distance)
+            self.metrics[weekday][hour] = current
             
             
     def process_window(self):
@@ -467,6 +492,9 @@ class Thing:
             checked_count += 1
             
     def clean_up_cycles(self):
+        if self.cycles is None or len(self.cycles) == 0:
+            return
+        
         """
         Goal: Remove cycles that are invalid or too long/short.
 
