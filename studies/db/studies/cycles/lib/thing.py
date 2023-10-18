@@ -5,8 +5,6 @@ import statistics
 from juliacall import Main as jl
 jl.seval("using OnlineStats")
 
-from preparations import things_provider
-
 INVALID_STATE_TRANSITIONS = {
     1: [2],
     2: [3,4],
@@ -57,66 +55,6 @@ def phase_wise_distance_relative(cycle_1, cycle_2):
         distance += 0
         
     return distance / length
-
-def structure_observation_data(csv_file: str) -> dict:
-    """
-    Converts our csv observation file to json files for each thing where each contains a dict of the three datastream types
-    (primary_signal, cycle_second, signal_program) with a dataframe of their corresponding observations for that datastream and thing.
-    
-    {
-        'thing_name': {
-            'primary_signal': pd.DataFrame,
-            'cycle_second': pd.DataFrame,
-            'signal_program': pd.DataFrame
-        },
-        ...
-    }
-    """
-    
-    # Parse csv file into pandas dataframe
-    df = pd.read_csv(csv_file)
-
-    # Sort by phenonemon_time
-    df = df.sort_values(by=['phenomenon_time'])
-    
-    thing_datastreams = {}
-
-    # Split dataframe such that we have one dataframe per datastream_id
-    queried_datastreams = {}
-    for datastream_id in df['datastream_id'].unique():
-        queried_datastreams[datastream_id] = df[df['datastream_id'] == datastream_id]
-        
-    tp = things_provider.ThingsProvider()
-    things = tp.get_things()
-
-    # Stats
-    not_returned_by_db_counter = 0
-    total_number_of_datastreams = 0
-    total_number_of_relevant_datastreams = 0
-
-    for thing in things:
-        name = thing['name']
-        datastreams = thing['Datastreams']
-        for datastream in datastreams:
-            total_number_of_datastreams += 1
-            layer_name = datastream['properties']['layerName']
-            if layer_name != 'primary_signal' and layer_name != 'cycle_second' and layer_name != 'signal_program':
-                # Not relevant for cycles
-                continue
-            total_number_of_relevant_datastreams += 1
-            id = datastream['@iot.id']
-            if id not in queried_datastreams:
-                not_returned_by_db_counter += 1
-                continue
-            if name not in thing_datastreams:
-                thing_datastreams[name] = {}
-            thing_datastreams[name][layer_name] = queried_datastreams[id]
-
-    print('Total number of datastreams: ' + str(total_number_of_datastreams))
-    print('Total number of relevant datastreams: ' + str(total_number_of_relevant_datastreams))
-    print('Number of datastreams not queried: ' + str(not_returned_by_db_counter))
-    
-    return thing_datastreams
 
 def reconstruct_cycles_algo(datastreams: dict, last_result_before_first_known_primary_signal: int=None):
     """
