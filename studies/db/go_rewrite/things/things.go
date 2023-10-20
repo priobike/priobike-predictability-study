@@ -6,17 +6,31 @@ import (
 )
 
 type ThingsProvider struct {
-	Things []Thing
+	Things []TLDThing
 }
 
-type Thing struct {
+type TLDThing struct {
 	Name string `json:"name"`
 	Properties ThingProperties `json:"properties"`
+	Datastreams []Datastream `json:"Datastreams"`
+}
+
+type ThingProperties struct {
+	LaneType string `json:"laneType"`
+}
+
+type Datastream struct {
+	ID int32 `json:"@iot.id"`
+	Properties DatastreamProperties `json:"properties"`
+}
+
+type DatastreamProperties struct {
+	LayerName string `json:"layerName"` 
 }
 
 func NewThingsProvider() *ThingsProvider {
     p := new(ThingsProvider)
-	thingsFile := "things.json"
+	thingsFile := "things/things.json"
 	thingsData, fileErr := os.ReadFile(thingsFile)
 	if fileErr != nil {
 		panic(fileErr)
@@ -28,6 +42,57 @@ func NewThingsProvider() *ThingsProvider {
     return p
 }
 
-type ThingProperties struct {
-	LaneType string `json:"laneType"`
+/* func (thingsProvider *ThingsProvider) FilterOnlyBikeThings() {
+	bikeThings := []TLDThing{}
+	for _, thing := range thingsProvider.Things {
+		laneType := &thing.Properties.LaneType
+		if 	*laneType == "Radfahrer" ||
+			*laneType == "KFZ/Radfahrer" ||
+			*laneType == "Fußgänger/Radfahrer" ||
+			*laneType == "Bus/Radfahrer" ||
+		 	*laneType == "KFZ/Bus/Radfahrer" {
+                bikeThings = append(bikeThings, thing)
+		}
+	}
+	thingsProvider.Things = bikeThings
+} */
+
+/* func (thingsProvider *ThingsProvider) FilterOnlyPrimarySignalDatastreams() {
+	for i, thing := range thingsProvider.Things {
+		datastreams := []Datastream{}
+		for _, datastream := range thing.Datastreams {
+			layerName := &datastream.Properties.LayerName
+			if *layerName == "primary_signal" {
+				datastreams = append(datastreams, datastream)
+			}
+		}
+		thingsProvider.Things[i].Datastreams = datastreams
+	}
 }
+
+func (thingsProvider *ThingsProvider) FilterOnlyCycleSecondDatastreams() {
+	for i, thing := range thingsProvider.Things {
+		datastreams := []Datastream{}
+		for _, datastream := range thing.Datastreams {
+			layerName := &datastream.Properties.LayerName
+			if *layerName == "cycle_second" {
+				datastreams = append(datastreams, datastream)
+			}
+		}
+		thingsProvider.Things[i].Datastreams = datastreams
+	}
+} */
+
+func (thingsProvider *ThingsProvider) FilterOnlyPrimarySignalAndCycleSecondDatastreams() {
+	for i, thing := range thingsProvider.Things {
+		datastreams := []Datastream{}
+		for _, datastream := range thing.Datastreams {
+			layerName := &datastream.Properties.LayerName
+			if *layerName == "primary_signal" || *layerName == "cycle_second" {
+				datastreams = append(datastreams, datastream)
+			}
+		}
+		thingsProvider.Things[i].Datastreams = datastreams
+	}
+}
+

@@ -8,4 +8,5 @@ require (
 	github.com/jackc/pgx/v5 v5.4.3 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
+	gonum.org/v1/gonum v0.14.0 // indirect
 )
