@@ -18,7 +18,7 @@ import (
 // The observation database model (for gorm).
 type ObservationDB struct {
 	// The time when the observation was made (at the site), in milliseconds since epoch.
-	PhenomenonTime int32 `gorm:"type:integer;primaryKey"`
+	PhenomenonTime int32 `gorm:"type:integer;primaryKey;index:idx_observation"`
 	// The time when the observation was processed by the UDP, in milliseconds since epoch.
 	ResultTime int64
 	// The time when we received the observation, in milliseconds since epoch.
@@ -26,7 +26,7 @@ type ObservationDB struct {
 	// The result of the observation.
 	Result int16 `gorm:"type:smallint"`
 	// The datastream id.
-	DatastreamID int32 `gorm:"type:integer;primaryKey"`
+	DatastreamID int32 `gorm:"type:integer;primaryKey;index:idx_observation"`
 	// Whether its a mqtt observation or not.
 	Mqtt bool `gorm:"type:boolean"`
 }
