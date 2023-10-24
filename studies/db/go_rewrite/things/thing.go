@@ -45,15 +45,15 @@ type Thing struct {
 	cycles []cycle
 
 	// Reconstruction stats
-	primarySignalMissingCount int32
-	cycleSecondMissingCount int32
-	totalSkippedCycles int32
+	PrimarySignalMissingCount int32
+	CycleSecondMissingCount int32
+	TotalSkippedCycles int32
 
 	// General stats
-	totalCyclesCount int32
+	TotalCyclesCount int32
 
 	// Cleanup stats
-	totalRemovedCycleCount int32
+	TotalRemovedCycleCount int32
 	totalInvalidCycleLengthCount int32
 	totalInvalidCycleTransitionCount int32
 	totalInvalidCycleMissingCount int32
@@ -72,19 +72,22 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 		"cycle_second": make([]observation, 0),
 	}
 	thing.cycles = make([]cycle, 0)
-	thing.primarySignalMissingCount = 0
-	thing.cycleSecondMissingCount = 0
-	thing.totalSkippedCycles = 0
-	thing.totalCyclesCount = 0
-	thing.totalRemovedCycleCount = 0
+	thing.PrimarySignalMissingCount = 0
+	thing.CycleSecondMissingCount = 0
+	thing.TotalSkippedCycles = 0
+	thing.TotalCyclesCount = 0
+	thing.TotalRemovedCycleCount = 0
 	thing.totalInvalidCycleLengthCount = 0
 	thing.totalInvalidCycleTransitionCount = 0
 	thing.totalInvalidCycleMissingCount = 0
 	return thing
 }
 
-func (thing *Thing) AddObservation(layerName string, phenomenonTime int32, result int8) {
-	thing.observationsByDatastreams[layerName] = append(thing.observationsByDatastreams[layerName], observation{phenomenonTime, result})
+func (thing *Thing) AddObservation(layerName string, phenomenonTime int32, result int16) {
+	if result > 127 {
+		panic("Result is too large for int8.")
+	}
+	thing.observationsByDatastreams[layerName] = append(thing.observationsByDatastreams[layerName], observation{phenomenonTime, int8(result)})
 }
 
 func (thing *Thing) validateCycles(cycles []cycle) {
@@ -187,12 +190,12 @@ func (thing *Thing) CalcCycles() {
 	// println("Cycle count after cleanup: ", len(cycles))
 
 	thing.cycles = append(thing.cycles, cycles...)
-	thing.totalSkippedCycles += skippedCycles
+	thing.TotalSkippedCycles += skippedCycles
 	if primarySignalMissing {
-		thing.primarySignalMissingCount++
+		thing.PrimarySignalMissingCount++
 	}
 	if cycleSecondMissing {
-		thing.cycleSecondMissingCount++
+		thing.CycleSecondMissingCount++
 	}
 	thing.observationsByDatastreams["primary_signal"] = make([]observation, 0)
 	thing.observationsByDatastreams["cycle_second"] = make([]observation, 0)
@@ -218,7 +221,9 @@ func (thing *Thing) phaseWiseRelativeDistance(cycle1 cycle, cycle2 cycle) float6
 }
 
 func (thing *Thing) CalculateMetrics(day int, hour int) {
-	if thing.cycles == nil || len(thing.cycles) == 0 {
+	if thing.cycles == nil || len(thing.cycles) < 2 {
+		thing.Metrics[day][hour] = -1.0
+		thing.cycles = []cycle{}
 		return
 	}
 
@@ -253,6 +258,16 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 		return nil, 0, primarySignalMissing, cycleSecondMissing
 	}
 
+	if len(thing.observationsByDatastreams["primary_signal"]) == 0 {
+		primarySignalMissing = true
+	}
+	if len(thing.observationsByDatastreams["cycle_second"]) == 0 {
+		cycleSecondMissing = true
+	}
+	if primarySignalMissing || cycleSecondMissing {
+		return nil, 0, primarySignalMissing, cycleSecondMissing
+	}
+
 	// Sort observations by phenomenon time.
 	sort.Slice(thing.observationsByDatastreams["primary_signal"], func(i, j int) bool {
 		return thing.observationsByDatastreams["primary_signal"][i].phenomenonTime <
@@ -279,14 +294,37 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 
 	// The chances are very low that we only receive one primary signal (if none are received at all we already have an early return).
     // Thus if this happens we throw an exception to indicate that there might be a bug in the code leading to this.
-	if len(primarySignalObservations) == 1 {
-		panic("Only one primary signal observation received.")
+	/* if len(primarySignalObservations) == 1 {
+		primarySignalMissing = true
 	}
+	if len(cycleSecondObservations) == 1 {
+		cycleSecondMissing = true
+	}
+	if primarySignalMissing && cycleSecondMissing {
+		return nil, 0, primarySignalMissing, cycleSecondMissing
+	}
+	if primarySignalMissing {
+		println(" ")
+		println(thing.name)
+		println("Attention: Only one primary signal observation received. This should not happen and might be a bug. Count of cycle second observations: ", len(cycleSecondObservations))
+		return nil, 0, primarySignalMissing, cycleSecondMissing
+	}
+	if cycleSecondMissing {
+		println(" ")
+		println(thing.name)
+		println("Attention: Only one cycle second observation received. This should not happen and might be a bug. Count of primary signal observations: ", len(primarySignalObservations))
+		return nil, 0, primarySignalMissing, cycleSecondMissing
+	} */
 
 	// The result of the current primary signal
 	result := primarySignalObservations[primarySignalIndex].result
 	// The phenomenon time of the next primary signal observation (used to look ahead when we switch to the next primary signal observation).
-	upcomingPrimarySignalObservationPhenomenonTime := &primarySignalObservations[primarySignalIndex + 1].phenomenonTime
+	var upcomingPrimarySignalObservationPhenomenonTime *int32
+	if primarySignalIndex + 1 < primarySignalObserationsCount {
+		upcomingPrimarySignalObservationPhenomenonTime = &primarySignalObservations[primarySignalIndex + 1].phenomenonTime
+	} else {
+		upcomingPrimarySignalObservationPhenomenonTime = nil
+	}
 
 	// We start at the first received primary signal or cycle second observation and go on second by second.
     // During this process we construct cycles and throw away primary signals that don't belong to a cycle.
@@ -535,8 +573,8 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		}
 	}
 
-	thing.totalCyclesCount += cyclesCount
-	thing.totalRemovedCycleCount += removedCycleCount
+	thing.TotalCyclesCount += cyclesCount
+	thing.TotalRemovedCycleCount += removedCycleCount
 
 	thing.totalInvalidCycleLengthCount += invalidCycleLengthCount
 	thing.totalInvalidCycleTransitionCount += invalidCycleTransitionCount

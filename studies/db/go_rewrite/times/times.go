@@ -84,16 +84,18 @@ func GetDayHours(targetWeekday int)[24][4][2]int32 {
 
 	var result [24][4][2]int32
 
-	// Get the current time
-	currentTime := time.Now()
-	currentTime = time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, currentTime.Location())
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+	endDate := time.Date(2023, 10, 20, 0, 0, 0, 0, location)
 
-	// Find the last five occurrences of the target weekday
+	// Find the last 4 occurrences of the target weekday
 	var weekdays [4]time.Time
 	for i := 0; i < 4; i++ {
-		weekday := int(currentTime.Weekday())
+		weekday := int(endDate.Weekday())
 		daysAgo := (weekday + 7 - targetWeekday) % 7 // days ago of the most recent target weekday
-		occurrence := currentTime.AddDate(0, 0, -daysAgo-7*i)
+		occurrence := endDate.AddDate(0, 0, -daysAgo-7*i)
 		weekdays[i] = occurrence
 	}
 
