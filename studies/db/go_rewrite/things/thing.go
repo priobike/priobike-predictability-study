@@ -496,6 +496,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 			}
 			println(" ")
 			println("Cycle length: ", len(*results)) */
+			removedCycleCount++
 			continue
 		}
 
@@ -524,6 +525,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 				print(result)
 			}
 			println(" ") */
+			removedCycleCount++
 			continue
 		}
 
@@ -554,6 +556,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		}
 
 		if !thing.retrieveAllCycleCleanupStats && missingObservation {
+			removedCycleCount++
 			continue
 		}
 

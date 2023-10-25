@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	runner.Run()
+	runner.RunCompleteCell()
 	// times.DebugPrint()
 	// Wait forever.
 	// select {}

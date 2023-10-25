@@ -15,7 +15,7 @@ type Pool struct {
 }
 
 func NewPool() *Pool {
-	conf, parseErr := pgxpool.ParseConfig("user=postgres password=Et7RvZ4TjEBHRF host=priobike-sentry.inf.tu-dresden.de port=443 dbname=observations")
+	conf, parseErr := pgxpool.ParseConfig("user=postgres password=Et7RvZ4TjEBHRF host=localhost port=5432 dbname=postgres")
 	if parseErr != nil {
 		panic(parseErr)
 	}
