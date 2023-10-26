@@ -3,23 +3,23 @@ package runner
 import (
 	// "time"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"sync"
 
-	"studies/things"
 	"studies/db"
+	"studies/things"
 	"studies/times"
 )
 
 type ObservationFromDb struct {
 	PhenomenonTime int32
-	Result int16
-	DatastreamId int32
+	Result         int16
+	DatastreamId   int32
 }
 
 func RunCompleteCell() {
 	processedThingsByRoutines := [7]map[string]*things.Thing{}
-	for idx, _ := range processedThingsByRoutines {
+	for idx := range processedThingsByRoutines {
 		processedThingsByRoutines[idx] = map[string]*things.Thing{}
 	}
 
@@ -32,7 +32,7 @@ func RunCompleteCell() {
 	datastreamsByThingName := map[string]map[string]int32{}
 	thingsByDatastreamId := map[int32]string{}
 	for _, tldThing := range tldThings {
-		for idx, _ := range processedThingsByRoutines {	
+		for idx := range processedThingsByRoutines {
 			thing := things.NewThing(
 				tldThing.Name,
 				validationActive,
@@ -68,13 +68,13 @@ func RunCompleteCell() {
 		client := pool.GetClient()
 		wg.Add(1)
 		go func(things *map[string]*things.Thing, dayIdx int, day [24][4][2]int32, dbClient *db.Client) {
-            defer wg.Done()
+			defer wg.Done()
 			for hourIdx, hour := range day {
 				println("Processing day", dayIdx, "hour", hourIdx)
 				cells := [4][2]int32{}
 				for cellIdx, cell := range hour {
 					// println(cell[0], " ", cell[1])
-					cells[4- 1 -cellIdx] = [2]int32{cell[0], cell[1]}
+					cells[4-1-cellIdx] = [2]int32{cell[0], cell[1]}
 				}
 				query := db.GetCellsAllDatastreamsQuery(cells)
 				rows := dbClient.Query(query)
@@ -93,7 +93,7 @@ func RunCompleteCell() {
 					if phenomenon_time > cells[currentCellIdx][1] {
 						currentCellIdx++
 						for _, thing := range *things {
-							thing.CalcCycles()
+							thing.CalcCycles(currentCellIdx)
 						}
 						// println("Calc Cycles")
 					}
@@ -110,14 +110,14 @@ func RunCompleteCell() {
 					observationCount++
 					thing.AddObservation(layerName, phenomenon_time, result)
 					/* rowCount++
-					if rowCount % 100000 == 0 {	
+					if rowCount % 100000 == 0 {
 						println("Processed observations: ", rowCount)
 					} */
 				}
 				println("Observation count: ", observationCount)
 				rows.Close()
 				for _, thing := range *things {
-					thing.CalcCycles()
+					thing.CalcCycles(currentCellIdx)
 					thing.CalculateMetrics(dayIdx, hourIdx)
 				}
 				// println("Processed observations")
@@ -138,7 +138,7 @@ func RunCompleteCell() {
 		for thingName, thing := range processedThingsByRoutine {
 			if _, ok := processedThings[thingName]; !ok {
 				processedThings[thingName] = thing
-			} else {	
+			} else {
 				processedThings[thingName].PrimarySignalMissingCount += thing.PrimarySignalMissingCount
 				processedThings[thingName].CycleSecondMissingCount += thing.CycleSecondMissingCount
 				processedThings[thingName].TotalSkippedCycles += thing.TotalSkippedCycles
@@ -151,5 +151,5 @@ func RunCompleteCell() {
 
 	// Output processed things as json file
 	file, _ := json.MarshalIndent(processedThings, "", " ")
-	_ = ioutil.WriteFile("processed_things.json", file, 0644)
+	_ = os.WriteFile("processed_things.json", file, 0644)
 }

@@ -21,10 +21,10 @@ type observation struct {
 
 // Map where the values are sets
 var INVALID_STATE_TRANSITIONS = map[int8]map[int8]struct{}{
-	1: map[int8]struct{}{2: struct{}{}},
-	2: map[int8]struct{}{3: struct{}{}, 4: struct{}{}},
-	3: map[int8]struct{}{4: struct{}{}},
-	4: map[int8]struct{}{1: struct{}{}, 2: struct{}{}},
+	1: {2: struct{}{}},
+	2: {3: struct{}{}, 4: struct{}{}},
+	3: {4: struct{}{}},
+	4: {1: struct{}{}, 2: struct{}{}},
 }
 
 var MAX_STATE_LENGTHS = map[int8]int8{
@@ -42,7 +42,7 @@ type Thing struct {
 
 	// Data
 	observationsByDatastreams map[string][]observation
-	cycles                    []cycle
+	cycles                    [4][]cycle
 
 	// Reconstruction stats
 	PrimarySignalMissingCount int32
@@ -71,7 +71,12 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 		"primary_signal": make([]observation, 0),
 		"cycle_second":   make([]observation, 0),
 	}
-	thing.cycles = make([]cycle, 0)
+	thing.cycles = [4][]cycle{
+		{},
+		{},
+		{},
+		{},
+	}
 	thing.PrimarySignalMissingCount = 0
 	thing.CycleSecondMissingCount = 0
 	thing.TotalSkippedCycles = 0
@@ -91,7 +96,7 @@ func (thing *Thing) AddObservation(layerName string, phenomenonTime int32, resul
 }
 
 func (thing *Thing) validateCycles(cycles []cycle) {
-	if cycles == nil || len(cycles) == 0 {
+	if len(cycles) == 0 {
 		print("No cycles to validate.")
 		return
 	}
@@ -178,7 +183,7 @@ func (thing *Thing) validateCycles(cycles []cycle) {
 	}
 }
 
-func (thing *Thing) CalcCycles() {
+func (thing *Thing) CalcCycles(cellIdx int) {
 	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
 	// println("Cycle count: ", len(cycles))
 
@@ -189,7 +194,7 @@ func (thing *Thing) CalcCycles() {
 	cycles = thing.cleanUpCycles(cycles)
 	// println("Cycle count after cleanup: ", len(cycles))
 
-	thing.cycles = append(thing.cycles, cycles...)
+	thing.cycles[cellIdx] = cycles
 	thing.TotalSkippedCycles += skippedCycles
 	if primarySignalMissing {
 		thing.PrimarySignalMissingCount++
@@ -221,25 +226,37 @@ func (thing *Thing) phaseWiseRelativeDistance(cycle1 cycle, cycle2 cycle) float6
 }
 
 func (thing *Thing) CalculateMetrics(day int, hour int) {
-	if thing.cycles == nil || len(thing.cycles) < 2 {
-		thing.Metrics[day][hour] = -1.0
-		thing.cycles = []cycle{}
-		return
+	distances := make([]float64, 0)
+	for _, cellCycles := range thing.cycles {
+		for idx, cycle := range cellCycles {
+			if idx >= len(thing.cycles)-1 {
+				break
+			}
+			distances = append(distances, thing.phaseWiseRelativeDistance(cycle, cellCycles[idx+1]))
+		}
 	}
 
-	distances := make([]float64, 0)
-	for idx, cycle := range thing.cycles {
-		if idx >= len(thing.cycles)-1 {
-			break
+	if len(distances) == 0 {
+		thing.Metrics[day][hour] = -1.0
+		thing.cycles = [4][]cycle{
+			{},
+			{},
+			{},
+			{},
 		}
-		distances = append(distances, thing.phaseWiseRelativeDistance(cycle, thing.cycles[idx+1]))
+		return
 	}
 
 	sort.Float64s(distances)
 	medianDistance := stat.Quantile(0.5, stat.Empirical, distances, nil)
 	thing.Metrics[day][hour] = medianDistance
 
-	thing.cycles = []cycle{}
+	thing.cycles = [4][]cycle{
+		{},
+		{},
+		{},
+		{},
+	}
 }
 
 func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
@@ -430,7 +447,7 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 }
 
 func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
-	if cycles == nil || len(cycles) == 0 {
+	if len(cycles) == 0 {
 		return []cycle{}
 	}
 

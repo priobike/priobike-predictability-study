@@ -1,8 +1,10 @@
 package runner
 
 import (
-	"studies/things"
+	"encoding/json"
+	"os"
 	"studies/db"
+	"studies/things"
 	"studies/times"
 )
 
@@ -33,7 +35,7 @@ func RunCompleteThing() {
 				panic("Unknown layer name")
 			}
 		}
-		
+
 		datastreamIds := []int32{}
 		if primarySignalDatastreamId != nil {
 			datastreamIds = append(datastreamIds, *primarySignalDatastreamId)
@@ -57,8 +59,8 @@ func RunCompleteThing() {
 			}
 			observations = append(observations, &ObservationFromDb{
 				PhenomenonTime: phenomenon_time,
-				Result: result,
-				DatastreamId: datastream_id,
+				Result:         result,
+				DatastreamId:   datastream_id,
 			})
 		}
 
@@ -86,7 +88,7 @@ func RunCompleteThing() {
 				// println(" ")
 				//fmt.Print("\033[s")
 				observationCount := 0
-				for _, cell := range hour {
+				for cellIdx, cell := range hour {
 					for _, observation := range cell {
 						observationCount++
 						// fmt.Print("\033[u\033[K")
@@ -101,16 +103,18 @@ func RunCompleteThing() {
 						}
 						thing.AddObservation(layerName, (*observation).PhenomenonTime, (*observation).Result)
 					}
-					thing.CalcCycles()
+					thing.CalcCycles(cellIdx)
 				}
 				println(" ")
 				thing.CalculateMetrics(dayIdx, hourIdx)
 			}
 		}
 		processedThings = append(processedThings, thing)
-		break
+
 	}
 	dbClient.Close()
 	dbPool.Close()
-
+	// Output processed things as json file
+	file, _ := json.MarshalIndent(processedThings, "", " ")
+	_ = os.WriteFile("processed_things.json", file, 0644)
 }
