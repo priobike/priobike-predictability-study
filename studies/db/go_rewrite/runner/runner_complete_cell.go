@@ -23,8 +23,8 @@ func RunCompleteCell() {
 		processedThingsByRoutines[idx] = map[string]*things.Thing{}
 	}
 
-	validationActive := true
-	retrieveAllCycleCleanupStats := false
+	validationActive := false
+	retrieveAllCycleCleanupStats := true
 
 	tp := things.NewThingsProvider()
 	tp.FilterOnlyPrimarySignalAndCycleSecondDatastreams()
@@ -144,6 +144,9 @@ func RunCompleteCell() {
 				processedThings[thingName].TotalSkippedCycles += thing.TotalSkippedCycles
 				processedThings[thingName].TotalCyclesCount += thing.TotalCyclesCount
 				processedThings[thingName].TotalRemovedCycleCount += thing.TotalRemovedCycleCount
+				processedThings[thingName].TotalInvalidCycleLengthCount += thing.TotalInvalidCycleLengthCount
+				processedThings[thingName].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount
+				processedThings[thingName].TotalInvalidCycleMissingCount += thing.TotalInvalidCycleMissingCount
 				processedThings[thingName].Metrics[dayIdx] = thing.Metrics[dayIdx]
 			}
 		}

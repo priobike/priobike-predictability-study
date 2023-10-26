@@ -54,9 +54,9 @@ type Thing struct {
 
 	// Cleanup stats
 	TotalRemovedCycleCount           int32
-	totalInvalidCycleLengthCount     int32
-	totalInvalidCycleTransitionCount int32
-	totalInvalidCycleMissingCount    int32
+	TotalInvalidCycleLengthCount     int32
+	TotalInvalidCycleTransitionCount int32
+	TotalInvalidCycleMissingCount    int32
 
 	// Metrics
 	Metrics [7][24]float64
@@ -82,9 +82,9 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 	thing.TotalSkippedCycles = 0
 	thing.TotalCyclesCount = 0
 	thing.TotalRemovedCycleCount = 0
-	thing.totalInvalidCycleLengthCount = 0
-	thing.totalInvalidCycleTransitionCount = 0
-	thing.totalInvalidCycleMissingCount = 0
+	thing.TotalInvalidCycleLengthCount = 0
+	thing.TotalInvalidCycleTransitionCount = 0
+	thing.TotalInvalidCycleMissingCount = 0
 	return thing
 }
 
@@ -229,7 +229,7 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
-			if idx >= len(thing.cycles)-1 {
+			if idx >= len(cellCycles)-1 {
 				break
 			}
 			distances = append(distances, thing.phaseWiseRelativeDistance(cycle, cellCycles[idx+1]))
@@ -553,8 +553,12 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 
 		for i := 0; i < len(*results); i++ {
 			if maxStateLength != nil {
-				if maxStateLengthCounter >= *maxStateLength {
+				if maxStateLengthCounter > *maxStateLength {
 					missingObservation = true
+					/* println(" ")
+					for _, result := range *results {
+						print(result)
+					} */
 					break
 				}
 
@@ -565,10 +569,11 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 					maxStateLength = nil
 				}
 			}
-			if _, ok := MAX_STATE_LENGTHS[(*results)[i]]; ok {
-				state := MAX_STATE_LENGTHS[(*results)[i]]
-				maxStateLength = &state
-				maxStateLengthCounter = 0
+			if maxStateLength == nil {
+				if length, ok := MAX_STATE_LENGTHS[(*results)[i]]; ok {
+					maxStateLength = &length
+					maxStateLengthCounter = 0
+				}
 			}
 		}
 
@@ -596,9 +601,9 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 	thing.TotalCyclesCount += cyclesCount
 	thing.TotalRemovedCycleCount += removedCycleCount
 
-	thing.totalInvalidCycleLengthCount += invalidCycleLengthCount
-	thing.totalInvalidCycleTransitionCount += invalidCycleTransitionCount
-	thing.totalInvalidCycleMissingCount += invalidCycleMissingCount
+	thing.TotalInvalidCycleLengthCount += invalidCycleLengthCount
+	thing.TotalInvalidCycleTransitionCount += invalidCycleTransitionCount
+	thing.TotalInvalidCycleMissingCount += invalidCycleMissingCount
 
 	return cleanedUpCycles
 }
