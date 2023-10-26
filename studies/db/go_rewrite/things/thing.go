@@ -1,16 +1,16 @@
 package things
 
 import (
-	"sort"
 	"math"
 	"math/rand"
+	"sort"
 
 	"gonum.org/v1/gonum/stat"
 )
 
 type cycle struct {
-	start int32
-	end   int32
+	start   int32
+	end     int32
 	results []int8
 }
 
@@ -21,15 +21,15 @@ type observation struct {
 
 // Map where the values are sets
 var INVALID_STATE_TRANSITIONS = map[int8]map[int8]struct{}{
-    1: map[int8]struct{}{2: struct{}{}},
-    2: map[int8]struct{}{3: struct{}{}, 4: struct{}{}},
-    3: map[int8]struct{}{4: struct{}{}},
-    4: map[int8]struct{}{1: struct{}{}, 2: struct{}{}},
+	1: map[int8]struct{}{2: struct{}{}},
+	2: map[int8]struct{}{3: struct{}{}, 4: struct{}{}},
+	3: map[int8]struct{}{4: struct{}{}},
+	4: map[int8]struct{}{1: struct{}{}, 2: struct{}{}},
 }
 
 var MAX_STATE_LENGTHS = map[int8]int8{
-    2: 6,
-    4: 2,
+	2: 6,
+	4: 2,
 }
 
 type Thing struct {
@@ -37,29 +37,29 @@ type Thing struct {
 	name string
 
 	// Settings
-	validation bool
+	validation                   bool
 	retrieveAllCycleCleanupStats bool
 
 	// Data
 	observationsByDatastreams map[string][]observation
-	cycles []cycle
+	cycles                    []cycle
 
 	// Reconstruction stats
 	PrimarySignalMissingCount int32
-	CycleSecondMissingCount int32
-	TotalSkippedCycles int32
+	CycleSecondMissingCount   int32
+	TotalSkippedCycles        int32
 
 	// General stats
 	TotalCyclesCount int32
 
 	// Cleanup stats
-	TotalRemovedCycleCount int32
-	totalInvalidCycleLengthCount int32
+	TotalRemovedCycleCount           int32
+	totalInvalidCycleLengthCount     int32
 	totalInvalidCycleTransitionCount int32
-	totalInvalidCycleMissingCount int32
+	totalInvalidCycleMissingCount    int32
 
 	// Metrics
-	Metrics [7][24] float64
+	Metrics [7][24]float64
 }
 
 func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *Thing {
@@ -69,7 +69,7 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 	thing.retrieveAllCycleCleanupStats = retrieveAllCycleCleanupStats
 	thing.observationsByDatastreams = map[string][]observation{
 		"primary_signal": make([]observation, 0),
-		"cycle_second": make([]observation, 0),
+		"cycle_second":   make([]observation, 0),
 	}
 	thing.cycles = make([]cycle, 0)
 	thing.PrimarySignalMissingCount = 0
@@ -91,14 +91,14 @@ func (thing *Thing) AddObservation(layerName string, phenomenonTime int32, resul
 }
 
 func (thing *Thing) validateCycles(cycles []cycle) {
-	if (cycles == nil || len(cycles) == 0) {
+	if cycles == nil || len(cycles) == 0 {
 		print("No cycles to validate.")
 		return
 	}
-	
+
 	// --------------------------------
 	// FIRST: Check if the count of results in the cycles is equal to the difference between the start and end time.
-	// -------------------------------- 
+	// --------------------------------
 
 	// List of bools where each bool indicates if a problem was found for a cycle.
 	// Thus, if all bools are False, then there are no problems
@@ -124,11 +124,11 @@ func (thing *Thing) validateCycles(cycles []cycle) {
 	// 1. Random cycle start time: Is there a corresponding cycle_second observation for that thing?
 	// 2. Random result in cycle: Is there a corresponding primary_signal observation for that thing?
 	// Do this multiple times, just to make sure..
-	// --------------------------------  
+	// --------------------------------
 
 	// Count of how many checks we made (primary signal and cycle second are not counted seperatly).
 	checked_count := 0
-	
+
 	for checked_count < 50 {
 		// Random cycle
 		cycle := cycles[rand.Intn(len(cycles))]
@@ -143,11 +143,11 @@ func (thing *Thing) validateCycles(cycles []cycle) {
 		if cycleSecondObservationsFound != 1 {
 			panic("Attention: No or multiple corresponding cycle second observations found. This should not happen and is a bug.")
 		}
-		
+
 		// Find all state changes (e.g. when result changes from 2 to 1)
 		stateChanges := make([][2]int32, 0)
 		var previousResult *int8
-		for i := int32(0); i < int32(len(cycle.results)); i++ { 
+		for i := int32(0); i < int32(len(cycle.results)); i++ {
 			if previousResult != nil && *previousResult != cycle.results[i] {
 				stateChange := [2]int32{int32(cycle.results[i]), cycle.start + i}
 				stateChanges = append(stateChanges, stateChange)
@@ -217,7 +217,7 @@ func (thing *Thing) phaseWiseRelativeDistance(cycle1 cycle, cycle2 cycle) float6
 			distance += 1.0
 		}
 	}
-	return distance / float64(length)
+	return distance
 }
 
 func (thing *Thing) CalculateMetrics(day int, hour int) {
@@ -229,10 +229,10 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 
 	distances := make([]float64, 0)
 	for idx, cycle := range thing.cycles {
-		if idx >= len(thing.cycles) - 1 {
+		if idx >= len(thing.cycles)-1 {
 			break
 		}
-		distances = append(distances, thing.phaseWiseRelativeDistance(cycle, thing.cycles[idx + 1]))
+		distances = append(distances, thing.phaseWiseRelativeDistance(cycle, thing.cycles[idx+1]))
 	}
 
 	sort.Float64s(distances)
@@ -271,11 +271,11 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 	// Sort observations by phenomenon time.
 	sort.Slice(thing.observationsByDatastreams["primary_signal"], func(i, j int) bool {
 		return thing.observationsByDatastreams["primary_signal"][i].phenomenonTime <
-		thing.observationsByDatastreams["primary_signal"][j].phenomenonTime
+			thing.observationsByDatastreams["primary_signal"][j].phenomenonTime
 	})
 	sort.Slice(thing.observationsByDatastreams["cycle_second"], func(i, j int) bool {
 		return thing.observationsByDatastreams["cycle_second"][i].phenomenonTime <
-		thing.observationsByDatastreams["cycle_second"][j].phenomenonTime
+			thing.observationsByDatastreams["cycle_second"][j].phenomenonTime
 	})
 
 	primarySignalObservations := thing.observationsByDatastreams["primary_signal"]
@@ -290,10 +290,10 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 	cycleSecondIndex := 0
 
 	firstPrimarySignalPhenonmenonTime := primarySignalObservations[primarySignalIndex].phenomenonTime
-    firstCycleSecondPhenonmenonTime := cycleSecondObservations[cycleSecondIndex].phenomenonTime
+	firstCycleSecondPhenonmenonTime := cycleSecondObservations[cycleSecondIndex].phenomenonTime
 
 	// The chances are very low that we only receive one primary signal (if none are received at all we already have an early return).
-    // Thus if this happens we throw an exception to indicate that there might be a bug in the code leading to this.
+	// Thus if this happens we throw an exception to indicate that there might be a bug in the code leading to this.
 	/* if len(primarySignalObservations) == 1 {
 		primarySignalMissing = true
 	}
@@ -320,34 +320,34 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 	result := primarySignalObservations[primarySignalIndex].result
 	// The phenomenon time of the next primary signal observation (used to look ahead when we switch to the next primary signal observation).
 	var upcomingPrimarySignalObservationPhenomenonTime *int32
-	if primarySignalIndex + 1 < primarySignalObserationsCount {
-		upcomingPrimarySignalObservationPhenomenonTime = &primarySignalObservations[primarySignalIndex + 1].phenomenonTime
+	if primarySignalIndex+1 < primarySignalObserationsCount {
+		upcomingPrimarySignalObservationPhenomenonTime = &primarySignalObservations[primarySignalIndex+1].phenomenonTime
 	} else {
 		upcomingPrimarySignalObservationPhenomenonTime = nil
 	}
 
 	// We start at the first received primary signal or cycle second observation and go on second by second.
-    // During this process we construct cycles and throw away primary signals that don't belong to a cycle.
-    // If the primary signal came before the cycle it's important to start there such that we know the result one the cycle starts.
-    // If the cycle came before the primary signal we start there because we don't know the result of the primary signal before the cycle starts.
-    // We only try to use the result last primary signal of the previous window.
-    tickerSecond := min(firstPrimarySignalPhenonmenonTime, firstCycleSecondPhenonmenonTime)
-    
-    // Before we reconstruct the programs we first reconstruct all cycles regardless of the programs.
-    cycles := make([]cycle, 0)
-    
-    // Where we save the data (start time, end time, primary signal observation results) of the current cycle.
-    var currentCycle *cycle
-    
-    // Start and end phenomenon time of the currently looked at cycle
-    var cycleTimeStart *int32
-    var cycleTimeEnd *int32
-    
-    // How many times we skipped cycles where the primary signals were missing
-    skippedCycles := int32(0)
+	// During this process we construct cycles and throw away primary signals that don't belong to a cycle.
+	// If the primary signal came before the cycle it's important to start there such that we know the result one the cycle starts.
+	// If the cycle came before the primary signal we start there because we don't know the result of the primary signal before the cycle starts.
+	// We only try to use the result last primary signal of the previous window.
+	tickerSecond := min(firstPrimarySignalPhenonmenonTime, firstCycleSecondPhenonmenonTime)
 
-	for tickerSecond < cycleSecondObservations[len(cycleSecondObservations) - 1].phenomenonTime {
-		if cycleSecondIndex + 1 >= cycleSecondObservationsCount {
+	// Before we reconstruct the programs we first reconstruct all cycles regardless of the programs.
+	cycles := make([]cycle, 0)
+
+	// Where we save the data (start time, end time, primary signal observation results) of the current cycle.
+	var currentCycle *cycle
+
+	// Start and end phenomenon time of the currently looked at cycle
+	var cycleTimeStart *int32
+	var cycleTimeEnd *int32
+
+	// How many times we skipped cycles where the primary signals were missing
+	skippedCycles := int32(0)
+
+	for tickerSecond < cycleSecondObservations[len(cycleSecondObservations)-1].phenomenonTime {
+		if cycleSecondIndex+1 >= cycleSecondObservationsCount {
 			// End of data ("+ 1") because we also need to have an end for the cycle
 			break
 		}
@@ -357,13 +357,13 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 			cycleTimeStart = &cycleSecondObservations[cycleSecondIndex].phenomenonTime
 		}
 		if cycleTimeEnd == nil {
-			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex + 1].phenomenonTime
+			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex+1].phenomenonTime
 		}
 
 		// Update current cycle for all upcoming cycles after the first cycle.
 		if tickerSecond >= *cycleTimeEnd {
 			// If we proceed to the next cycle without having saved any data for the current cycle this means that there we no corresponding primary signals observations.
-            // Thus we skip this cycle.
+			// Thus we skip this cycle.
 			if currentCycle == nil {
 				skippedCycles++
 			} else {
@@ -375,7 +375,7 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 			// Update cycle time
 			cycleSecondIndex++
 			cycleTimeStart = &cycleSecondObservations[cycleSecondIndex].phenomenonTime
-			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex + 1].phenomenonTime
+			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex+1].phenomenonTime
 		}
 
 		// We reached a time with the ticker where we have a new primary signal observation.
@@ -383,26 +383,26 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 			// Update the current primary signal.
 			primarySignalIndex++
 			result = primarySignalObservations[primarySignalIndex].result
-			
+
 			// Check if there are still primary signal observations left and if so update the upcoming primary signal observation phenomenon time.
-			if primarySignalIndex + 1 < primarySignalObserationsCount {
-				upcomingPrimarySignalObservationPhenomenonTime = &primarySignalObservations[primarySignalIndex + 1].phenomenonTime
+			if primarySignalIndex+1 < primarySignalObserationsCount {
+				upcomingPrimarySignalObservationPhenomenonTime = &primarySignalObservations[primarySignalIndex+1].phenomenonTime
 			} else {
 				upcomingPrimarySignalObservationPhenomenonTime = nil
 			}
 		}
 
 		// If the current cycle is none (either because it is the first cycle or because we just saved the last cycle) we create a new cycle,
-        // but only if the ticker is at the start of the current cycle.
-        // This is checked to assure that we only create cycles where we have corresponding primary signal observation data.
+		// but only if the ticker is at the start of the current cycle.
+		// This is checked to assure that we only create cycles where we have corresponding primary signal observation data.
 		if currentCycle == nil && tickerSecond == *cycleTimeStart {
 			currentCycle = &cycle{*cycleTimeStart, *cycleTimeEnd, make([]int8, 0)}
 		}
 
 		// Fill up the results of the current cycle with the current primary signal observation result until:
-        // option 1: we reach the end of the current cycle
-    	// option 2: we reach the next primary signal observation
-        // The option that comes first is the one that is executed.
+		// option 1: we reach the end of the current cycle
+		// option 2: we reach the next primary signal observation
+		// The option that comes first is the one that is executed.
 		if currentCycle != nil && tickerSecond >= *cycleTimeStart {
 			var diffUpcoming int32
 			if upcomingPrimarySignalObservationPhenomenonTime == nil {
@@ -444,7 +444,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 	4 = red amber
 	5 = amber flashing
 	6 = green flashing
-	
+
 	1. Find invalid state transitions.
 
 		Typical cycles:
@@ -458,7 +458,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		Green -> RedAmber
 		RedAmber -> Red
 		RedAmber -> Amber
-	
+
 	2. Find missing observations.
 
 		We can do that by looking at the length of amber and red amber phases.
@@ -482,7 +482,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		results := &cycle.results
 		// Check for too long or too short cycles
 		wrongLength := false
-		if float64(len(*results)) > medianCycleLength * 1.5 || float64(len(*results)) < medianCycleLength * 0.5 {
+		if float64(len(*results)) > medianCycleLength*1.5 || float64(len(*results)) < medianCycleLength*0.5 {
 			wrongLength = true
 		}
 
@@ -503,7 +503,7 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		// Check for invalid state transitions
 		invalidTransition := false
 		var currentState *int8
-		for i := 0; i < len(*results); i++ { 
+		for i := 0; i < len(*results); i++ {
 			if currentState != nil {
 				if _, ok := INVALID_STATE_TRANSITIONS[*currentState][(*results)[i]]; ok {
 					invalidTransition = true
@@ -533,15 +533,15 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 		missingObservation := false
 		var maxStateLength *int8
 		maxStateLengthCounter := int8(0)
-		
-		for i := 0; i < len(*results); i++ { 
+
+		for i := 0; i < len(*results); i++ {
 			if maxStateLength != nil {
 				if maxStateLengthCounter >= *maxStateLength {
 					missingObservation = true
 					break
 				}
 
-				if (*results)[i] == (*results)[i - 1] {
+				if (*results)[i] == (*results)[i-1] {
 					maxStateLengthCounter++
 				} else {
 					maxStateLengthCounter = 0
