@@ -363,12 +363,7 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 	// How many times we skipped cycles where the primary signals were missing
 	skippedCycles := int32(0)
 
-	for tickerSecond < cycleSecondObservations[len(cycleSecondObservations)-1].phenomenonTime {
-		if cycleSecondIndex+1 >= cycleSecondObservationsCount {
-			// End of data ("+ 1") because we also need to have an end for the cycle
-			break
-		}
-
+	for tickerSecond <= cycleSecondObservations[len(cycleSecondObservations)-1].phenomenonTime {
 		// First cycle
 		if cycleTimeStart == nil {
 			cycleTimeStart = &cycleSecondObservations[cycleSecondIndex].phenomenonTime
@@ -391,6 +386,10 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 
 			// Update cycle time
 			cycleSecondIndex++
+			if cycleSecondIndex+1 >= cycleSecondObservationsCount {
+				// End of data ("+ 1") because we also need to have an end for the cycle
+				break
+			}
 			cycleTimeStart = &cycleSecondObservations[cycleSecondIndex].phenomenonTime
 			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex+1].phenomenonTime
 		}
@@ -413,7 +412,11 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 		// but only if the ticker is at the start of the current cycle.
 		// This is checked to assure that we only create cycles where we have corresponding primary signal observation data.
 		if currentCycle == nil && tickerSecond == *cycleTimeStart {
-			currentCycle = &cycle{*cycleTimeStart, *cycleTimeEnd, make([]int8, 0)}
+			// Check is important to make sure that we don't create a cycle when the phenomenon time of our current primary signal observation
+			// is after the start of the current cycle.
+			if primarySignalObservations[primarySignalIndex].phenomenonTime <= *cycleTimeStart {
+				currentCycle = &cycle{*cycleTimeStart, *cycleTimeEnd, make([]int8, 0)}
+			}
 		}
 
 		// Fill up the results of the current cycle with the current primary signal observation result until:
