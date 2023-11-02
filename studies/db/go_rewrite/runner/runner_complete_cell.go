@@ -74,7 +74,7 @@ func RunCompleteCell() {
 				cells := [4][2]int32{}
 				for cellIdx, cell := range hour {
 					// println(cell[0], " ", cell[1])
-					cells[4-1-cellIdx] = [2]int32{cell[0], cell[1]}
+					cells[cellIdx] = [2]int32{cell[0], cell[1]}
 				}
 				query := db.GetCellsAllDatastreamsQuery(cells)
 				rows := dbClient.Query(query)

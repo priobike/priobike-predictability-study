@@ -2,10 +2,9 @@ package times
 
 import (
 	"time"
-	"fmt"
 )
 
-func DebugPrint() {
+/* func DebugPrint() {
 	monday := GetMondayHours()
 	tuesday := GetTuesdayHours()
 	wednesday := GetWednesdayHours()
@@ -34,17 +33,17 @@ func DebugPrint() {
 		print("---------------------------------------------------")
 		println()
 	}
-}
+} */
 
 func GetCells() [7][24][4][2]int32 {
 	var result [7][24][4][2]int32
 	for i := 0; i < 7; i++ {
-		result[i] = GetDayHours(i)
+		result[i] = getDayHours(i)
 	}
 	return result
 }
 
-func GetSundayHours() [24][4][2]int32 {
+/* func GetSundayHours() [24][4][2]int32 {
 	return GetDayHours(0)
 }
 
@@ -70,14 +69,14 @@ func GetFridayHours() [24][4][2]int32 {
 
 func GetSaturdayHours() [24][4][2]int32 {
 	return GetDayHours(6)
-}
+} */
 
 // Function that returns a list that containts 24 lists of 4 tuples.package times
 // Each of the 24 lists stands for a hour of the day.
 // Each of the 4 tuples stands for the corresponding hour on the last 5 days (e.g. mondays).
 // The first element of the tuple stands for the first timestamp of the hour and the second element for the last.
 // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
-func GetDayHours(targetWeekday int)[24][4][2]int32 {
+func getDayHours(targetWeekday int) [24][4][2]int32 {
 	if targetWeekday < 0 || targetWeekday > 6 {
 		panic("Invalid weekday. Please provide a value between 0 and 6.")
 	}
@@ -95,7 +94,7 @@ func GetDayHours(targetWeekday int)[24][4][2]int32 {
 	for i := 0; i < 4; i++ {
 		weekday := int(endDate.Weekday())
 		daysAgo := (weekday + 7 - targetWeekday) % 7 // days ago of the most recent target weekday
-		occurrence := endDate.AddDate(0, 0, -daysAgo-7*i)
+		occurrence := endDate.AddDate(0, 0, -daysAgo-7*(3-i))
 		weekdays[i] = occurrence
 	}
 

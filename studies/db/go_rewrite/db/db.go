@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-
 
 type Pool struct {
 	pool *pgxpool.Pool
@@ -46,7 +44,7 @@ func (c *Client) Close() {
 	c.conn.Release()
 }
 
-func (c *Client) Query(query string, args ...interface{}) (pgx.Rows) {
+func (c *Client) Query(query string, args ...interface{}) pgx.Rows {
 	rows, err := c.conn.Query(context.Background(), query, args...)
 	if err != nil {
 		panic(err)
@@ -75,12 +73,11 @@ func GetCellsAllDatastreamsQuery(cellTimestamps [4][2]int32) string {
 	ORDER BY
 		phenomenon_time ASC`
 
-
 	return query
 }
 
 func GetCellsQuery(datastreamIds []int32, cellTimestamps [][2]int32) string {
-	if len(cellTimestamps) == 0 {
+	/* if len(cellTimestamps) == 0 {
 		panic("cellTimestamps must not be empty")
 	}
 
@@ -107,58 +104,61 @@ func GetCellsQuery(datastreamIds []int32, cellTimestamps [][2]int32) string {
 	ORDER BY
 		phenomenon_time ASC`
 
-	return query
+	return query */
+	return ""
 }
 
 func GetCellQuery(datastreamIds []int32, cellTimestamps [2]int32) string {
-	if len(cellTimestamps) == 0 {
-		panic("cellTimestamps must not be empty")
-	}
-	
-	idsString := "("
-	for _, datastreamId := range datastreamIds {
-		idsString += fmt.Sprint(datastreamId) + ","
-	}
-	idsString = idsString[:len(idsString)-1] + ")"
+	/* if len(cellTimestamps) == 0 {
+			panic("cellTimestamps must not be empty")
+		}
 
-	timestampsString := "(phenomenon_time >=" + fmt.Sprint(cellTimestamps[0]) + " AND phenomenon_time <=" + fmt.Sprint(cellTimestamps[1]) + ")"
+		idsString := "("
+		for _, datastreamId := range datastreamIds {
+			idsString += fmt.Sprint(datastreamId) + ","
+		}
+		idsString = idsString[:len(idsString)-1] + ")"
 
-	query := `
-    SELECT
-        phenomenon_time,result,datastream_id
-    FROM
-        observation_dbs
-    WHERE
-        datastream_id IN ` + idsString + `
-        AND ` + timestampsString + `
-    ORDER BY
-        phenomenon_time ASC`
+		timestampsString := "(phenomenon_time >=" + fmt.Sprint(cellTimestamps[0]) + " AND phenomenon_time <=" + fmt.Sprint(cellTimestamps[1]) + ")"
 
-	return query
+		query := `
+	    SELECT
+	        phenomenon_time,result,datastream_id
+	    FROM
+	        observation_dbs
+	    WHERE
+	        datastream_id IN ` + idsString + `
+	        AND ` + timestampsString + `
+	    ORDER BY
+	        phenomenon_time ASC`
+
+		return query */
+	return ""
 }
 
 func GetThingQuery(datastreamIds []int32) string {
-	if len(datastreamIds) != 2 {
-		panic("cellTimestamps must not be empty")
-	}
-	
-	idsString := "("
-	for _, datastreamId := range datastreamIds {
-		idsString += fmt.Sprint(datastreamId) + ","
-	}
-	idsString = idsString[:len(idsString)-1] + ")"
+	/* if len(datastreamIds) != 2 {
+			panic("cellTimestamps must not be empty")
+		}
 
-	query := `
-    SELECT
-        phenomenon_time,result,datastream_id
-    FROM
-        observation_dbs
-    WHERE
-        datastream_id IN ` + idsString + `
-    ORDER BY
-        phenomenon_time ASC`
+		idsString := "("
+		for _, datastreamId := range datastreamIds {
+			idsString += fmt.Sprint(datastreamId) + ","
+		}
+		idsString = idsString[:len(idsString)-1] + ")"
 
-	return query
+		query := `
+	    SELECT
+	        phenomenon_time,result,datastream_id
+	    FROM
+	        observation_dbs
+	    WHERE
+	        datastream_id IN ` + idsString + `
+	    ORDER BY
+	        phenomenon_time ASC`
+
+		return query */
+	return ""
 }
 
 /* func GetDayQuery(datastreamIds []int32, dayTimestamps [2][4][2]int32) string {

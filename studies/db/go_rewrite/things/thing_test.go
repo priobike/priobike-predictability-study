@@ -1185,6 +1185,12 @@ func checkMetric(
 		}
 
 		thing.CalcCycles(cellIdx)
+		if len(thing.observationsByDatastreams["primary_signal"]) != 0 {
+			t.Errorf("Expected %d observations for primary_signal, got %d", 0, len(thing.observationsByDatastreams["primary_signal"]))
+		}
+		if len(thing.observationsByDatastreams["cycle_second"]) != 0 {
+			t.Errorf("Expected %d observations for cycle_second, got %d", 0, len(thing.observationsByDatastreams["cycle_second"]))
+		}
 	}
 
 	thing.CalculateMetrics(dayIdx, hourIdx)
