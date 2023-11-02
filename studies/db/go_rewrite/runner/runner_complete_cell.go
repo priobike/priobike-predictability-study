@@ -26,7 +26,7 @@ func RunCompleteCell() {
 	validationActive := false
 	retrieveAllCycleCleanupStats := true
 
-	tp := things.NewThingsProvider()
+	tp := things.NewThingsProvider(false)
 	tp.FilterOnlyPrimarySignalAndCycleSecondDatastreams()
 	tldThings := tp.Things
 	datastreamsByThingName := map[string]map[string]int32{}

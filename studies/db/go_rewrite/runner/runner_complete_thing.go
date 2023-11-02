@@ -9,7 +9,7 @@ import (
 )
 
 func RunCompleteThing() {
-	tp := things.NewThingsProvider()
+	tp := things.NewThingsProvider(false)
 	tp.FilterOnlyPrimarySignalAndCycleSecondDatastreams()
 	tldThings := tp.Things
 	dbPool := db.NewPool()

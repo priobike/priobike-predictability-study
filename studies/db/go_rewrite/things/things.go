@@ -10,9 +10,9 @@ type ThingsProvider struct {
 }
 
 type TLDThing struct {
-	Name string `json:"name"`
-	Properties ThingProperties `json:"properties"`
-	Datastreams []Datastream `json:"Datastreams"`
+	Name        string          `json:"name"`
+	Properties  ThingProperties `json:"properties"`
+	Datastreams []Datastream    `json:"Datastreams"`
 }
 
 type ThingProperties struct {
@@ -20,17 +20,20 @@ type ThingProperties struct {
 }
 
 type Datastream struct {
-	ID int32 `json:"@iot.id"`
+	ID         int32                `json:"@iot.id"`
 	Properties DatastreamProperties `json:"properties"`
 }
 
 type DatastreamProperties struct {
-	LayerName string `json:"layerName"` 
+	LayerName string `json:"layerName"`
 }
 
-func NewThingsProvider() *ThingsProvider {
-    p := new(ThingsProvider)
+func NewThingsProvider(testing bool) *ThingsProvider {
+	p := new(ThingsProvider)
 	thingsFile := "things/things.json"
+	if testing {
+		thingsFile = "things.json"
+	}
 	thingsData, fileErr := os.ReadFile(thingsFile)
 	if fileErr != nil {
 		panic(fileErr)
@@ -39,7 +42,7 @@ func NewThingsProvider() *ThingsProvider {
 	if jsonErr != nil {
 		panic(jsonErr)
 	}
-    return p
+	return p
 }
 
 /* func (thingsProvider *ThingsProvider) FilterOnlyBikeThings() {
@@ -95,4 +98,3 @@ func (thingsProvider *ThingsProvider) FilterOnlyPrimarySignalAndCycleSecondDatas
 		thingsProvider.Things[i].Datastreams = datastreams
 	}
 }
-
