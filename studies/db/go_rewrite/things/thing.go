@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"sort"
 
-	"gonum.org/v1/gonum/stat"
+	"github.com/montanaflynn/stats"
 )
 
 type cycle struct {
@@ -206,7 +206,7 @@ func (thing *Thing) CalcCycles(cellIdx int) {
 	thing.observationsByDatastreams["cycle_second"] = make([]observation, 0)
 }
 
-func (thing *Thing) phaseWiseRelativeDistance(cycle1 cycle, cycle2 cycle) float64 {
+func (thing *Thing) phaseWiseDistance(cycle1 cycle, cycle2 cycle) float64 {
 	distance := 0.0
 	length := max(len(cycle1.results), len(cycle2.results))
 	for i := 0; i < length; i++ {
@@ -222,6 +222,7 @@ func (thing *Thing) phaseWiseRelativeDistance(cycle1 cycle, cycle2 cycle) float6
 			distance += 1.0
 		}
 	}
+
 	return distance
 }
 
@@ -232,7 +233,7 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			if idx >= len(cellCycles)-1 {
 				break
 			}
-			distances = append(distances, thing.phaseWiseRelativeDistance(cycle, cellCycles[idx+1]))
+			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
 		}
 	}
 
@@ -247,8 +248,11 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		return
 	}
 
-	sort.Float64s(distances)
-	medianDistance := stat.Quantile(0.5, stat.Empirical, distances, nil)
+	medianDistance, err := stats.Median(distances)
+	if err != nil {
+		panic(err)
+	}
+
 	thing.Metrics[day][hour] = medianDistance
 
 	thing.cycles = [4][]cycle{
@@ -496,8 +500,11 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 	for _, cycle := range cycles {
 		cycleLengths = append(cycleLengths, float64(len(cycle.results)))
 	}
-	sort.Float64s(cycleLengths)
-	medianCycleLength := stat.Quantile(0.5, stat.Empirical, cycleLengths, nil)
+
+	medianCycleLength, err := stats.Median(cycleLengths)
+	if err != nil {
+		panic(err)
+	}
 	for _, cycle := range cycles {
 		results := &cycle.results
 		// Check for too long or too short cycles

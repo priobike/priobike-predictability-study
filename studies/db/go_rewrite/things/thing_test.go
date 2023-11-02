@@ -974,7 +974,7 @@ func TestCleanUpCycles(t *testing.T) {
 		0,
 	)
 
-	// One cycle too short
+	// One cycle too short.
 
 	primarySignalObservations = []Observation{
 		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
@@ -998,7 +998,7 @@ func TestCleanUpCycles(t *testing.T) {
 		1,
 	)
 
-	// One cycle too long
+	// One cycle too long.
 
 	primarySignalObservations = []Observation{
 		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
@@ -1022,4 +1022,432 @@ func TestCleanUpCycles(t *testing.T) {
 		1,
 	)
 
+	// Valid cycles.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 20, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		2,
+		2,
+		0,
+		0,
+		0,
+	)
+
+	// Valid cycles.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 1, 12, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 1, 46, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		2,
+		2,
+		0,
+		0,
+		0,
+	)
+}
+
+func TestPhaseWiseDistance(t *testing.T) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := true
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	cycle1 := cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+
+	cycle2 := cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+
+	distance := thing.phaseWiseDistance(cycle1, cycle2)
+
+	if distance != 0 {
+		t.Errorf("Expected distance %d, got %v", 0, distance)
+	}
+
+	cycle1 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+
+	cycle2 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8},
+	}
+
+	distance = thing.phaseWiseDistance(cycle1, cycle2)
+
+	if distance != 2 {
+		t.Errorf("Expected distance %d, got %v", 2, distance)
+	}
+
+	cycle1 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+
+	cycle2 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 10, 11},
+	}
+
+	distance = thing.phaseWiseDistance(cycle1, cycle2)
+
+	if distance != 2 {
+		t.Errorf("Expected distance %d, got %v", 2, distance)
+	}
+
+	cycle1 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+	}
+
+	cycle2 = cycle{
+		start:   0,
+		end:     10,
+		results: []int8{1, 1, 1, 1, 1, 1, 1, 1, 11, 10, 11},
+	}
+
+	distance = thing.phaseWiseDistance(cycle1, cycle2)
+
+	if distance != 9 {
+		t.Errorf("Expected distance %d, got %v", 9, distance)
+	}
+}
+
+func checkMetric(
+	t *testing.T,
+	primarySignalObservations [4][]Observation,
+	cycleSecondObservations [4][]Observation,
+	expectedMetric float64,
+	dayIdx int,
+	hourIdx int,
+) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := true
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	for cellIdx := 0; cellIdx < 4; cellIdx++ {
+		for i := 0; i < len(primarySignalObservations[cellIdx]); i++ {
+			thing.AddObservation("primary_signal", primarySignalObservations[cellIdx][i].phenomenonTime, primarySignalObservations[cellIdx][i].result)
+		}
+
+		for i := 0; i < len(cycleSecondObservations[cellIdx]); i++ {
+			thing.AddObservation("cycle_second", cycleSecondObservations[cellIdx][i].phenomenonTime, cycleSecondObservations[cellIdx][i].result)
+		}
+
+		thing.CalcCycles(cellIdx)
+	}
+
+	thing.CalculateMetrics(dayIdx, hourIdx)
+
+	if thing.Metrics[dayIdx][hourIdx] != expectedMetric {
+		t.Errorf("Expected metric %f, got %f", expectedMetric, thing.Metrics[dayIdx][hourIdx])
+	}
+}
+
+func TestCalcMetric(t *testing.T) {
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 1, 46, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 1, 46, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 1, 46, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 1, 46, 0, location).Unix()), 1},
+		},
+	}
+
+	cycleSecondObservations := [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 2, 0, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		},
+	}
+
+	checkMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		0,
+		1,
+		1,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{ // Distance: 1
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 1, 46, 0, location).Unix()), 1},
+		},
+		{ // Distance: 1
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 1, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 1, 46, 0, location).Unix()), 1},
+		},
+		{ // Distance: 1
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 0
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 1, 46, 0, location).Unix()), 1},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 2, 0, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		},
+	}
+
+	checkMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		1,
+		1,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{ // Distance: 2
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 2
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 1
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 0
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 1, 46, 0, location).Unix()), 1},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		},
+	}
+
+	checkMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1.5,
+		1,
+		1,
+	)
 }
