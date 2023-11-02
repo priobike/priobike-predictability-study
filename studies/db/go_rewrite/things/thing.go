@@ -556,26 +556,21 @@ func (thing *Thing) cleanUpCycles(cycles []cycle) []cycle {
 
 		for i := 0; i < len(*results); i++ {
 			if maxStateLength != nil {
-				if maxStateLengthCounter > *maxStateLength {
-					missingObservation = true
-					/* println(" ")
-					for _, result := range *results {
-						print(result)
-					} */
-					break
-				}
-
 				if (*results)[i] == (*results)[i-1] {
 					maxStateLengthCounter++
+					if maxStateLengthCounter > *maxStateLength {
+						missingObservation = true
+						break
+					}
 				} else {
-					maxStateLengthCounter = 0
+					maxStateLengthCounter = 1
 					maxStateLength = nil
 				}
 			}
 			if maxStateLength == nil {
 				if length, ok := MAX_STATE_LENGTHS[(*results)[i]]; ok {
 					maxStateLength = &length
-					maxStateLengthCounter = 0
+					maxStateLengthCounter = 1
 				}
 			}
 		}

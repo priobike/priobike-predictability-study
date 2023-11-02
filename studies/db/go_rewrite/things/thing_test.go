@@ -96,7 +96,381 @@ func TestAddObservation(t *testing.T) {
 	}
 }
 
-func TestReconstructCycles(t *testing.T) {
+func TestReconstructCyclesMissing(t *testing.T) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := false
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
+
+	if skippedCycles > 0 {
+		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
+	}
+
+	if !primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", true, primarySignalMissing)
+	}
+
+	if !cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", true, cycleSecondMissing)
+	}
+
+	if len(cycles) != 0 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
+	}
+}
+
+func TestReconstructCyclesMissingCycle(t *testing.T) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := false
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 20, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 35, 0, location).Unix()), 5},
+		{int32(time.Date(2023, 10, 20, 0, 0, 42, 0, location).Unix()), 6},
+		{int32(time.Date(2023, 10, 20, 0, 0, 50, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 55, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
+	}
+
+	for i := 0; i < len(primarySignalObservations); i++ {
+		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	}
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
+
+	if skippedCycles > 0 {
+		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
+	}
+
+	if primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	}
+
+	if !cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", true, cycleSecondMissing)
+	}
+
+	if len(cycles) != 0 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
+	}
+}
+
+func TestReconstructCyclesSkipped(t *testing.T) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := false
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := []Observation{
+		{int32(time.Date(2023, 10, 21, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 21, 0, 0, 10, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 21, 0, 0, 20, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 21, 0, 0, 35, 0, location).Unix()), 5},
+		{int32(time.Date(2023, 10, 21, 0, 0, 42, 0, location).Unix()), 6},
+		{int32(time.Date(2023, 10, 21, 0, 0, 50, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 21, 0, 0, 55, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 21, 0, 1, 0, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 21, 0, 1, 10, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 21, 0, 1, 20, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
+	}
+
+	for i := 0; i < len(primarySignalObservations); i++ {
+		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	}
+
+	for i := 0; i < len(cycleSecondObservations); i++ {
+		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
+	}
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
+
+	if skippedCycles != 3 {
+		t.Errorf("Expected %d skipped cycles, got %d", 3, skippedCycles)
+	}
+
+	if primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	}
+
+	if cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
+	}
+
+	if len(cycles) != 0 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
+	}
+
+	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
+	}
+
+	for i := 0; i < len(primarySignalObservations); i++ {
+		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	}
+
+	for i := 0; i < len(cycleSecondObservations); i++ {
+		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
+	}
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
+
+	if skippedCycles != 2 {
+		t.Errorf("Expected %d skipped cycles, got %d", 2, skippedCycles)
+	}
+
+	if primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	}
+
+	if cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
+	}
+
+	if len(cycles) != 1 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 1, len(cycles))
+	}
+
+	// Check start and end times of cycles
+	cycleStart := cycles[0].start
+	cycleEnd := cycles[0].end
+
+	if cycleStart != cycleSecondObservations[2].phenomenonTime {
+		t.Errorf("Expected %d as start of cycle, got %d", cycleSecondObservations[2].phenomenonTime, cycleStart)
+	}
+	if cycleEnd != cycleSecondObservations[3].phenomenonTime {
+		t.Errorf("Expected %d as end of cycle, got %d", cycleSecondObservations[3].phenomenonTime, cycleEnd)
+	}
+
+	cycle := cycles[0]
+	for i := 0; i < len(cycle.results); i++ {
+		var resultIndex int8
+		if i < 10 {
+			resultIndex = 0
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		} else if i < 20 {
+			resultIndex = 1
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		} else if i < 30 {
+			resultIndex = 2
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		}
+	}
+}
+
+func TestReconstructCyclesPartly(t *testing.T) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := false
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
+	}
+
+	for i := 0; i < len(primarySignalObservations); i++ {
+		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	}
+
+	for i := 0; i < len(cycleSecondObservations); i++ {
+		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
+	}
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
+
+	if skippedCycles != 0 {
+		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
+	}
+
+	if primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	}
+
+	if cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
+	}
+
+	if len(cycles) != 2 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 2, len(cycles))
+	}
+
+	// Check start and end times of cycles
+	for i := 0; i < len(cycles); i++ {
+		if i+1 < len(cycles) {
+			if cycles[i].start != cycleSecondObservations[i].phenomenonTime {
+				t.Errorf("Expected %d as start of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i, cycles[i].start)
+			}
+		}
+
+		if i-1 >= 0 {
+			if cycles[i-1].end != cycleSecondObservations[i].phenomenonTime {
+				t.Errorf("Expected %d as end of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i-1, cycles[i].end)
+			}
+		}
+	}
+
+	// First cycle:
+	cycle := cycles[0]
+	for i := 0; i < len(cycle.results); i++ {
+		var resultIndex int8
+		if i < 30 {
+			resultIndex = 0
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		}
+	}
+
+	// Second cycle:
+	cycle = cycles[1]
+	for i := 0; i < len(cycle.results); i++ {
+		var resultIndex int8
+		if i < 20 {
+			resultIndex = 0
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		} else if i < 30 {
+			resultIndex = 1
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		}
+	}
+
+	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
+	}
+
+	for i := 0; i < len(primarySignalObservations); i++ {
+		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	}
+
+	for i := 0; i < len(cycleSecondObservations); i++ {
+		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
+	}
+
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
+
+	if skippedCycles != 0 {
+		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
+	}
+
+	if primarySignalMissing {
+		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	}
+
+	if cycleSecondMissing {
+		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
+	}
+
+	if len(cycles) != 2 {
+		t.Errorf("Expected %d reconstructed cycles, got %d", 2, len(cycles))
+	}
+
+	// Check start and end times of cycles
+	for i := 0; i < len(cycles); i++ {
+		if i+1 < len(cycles) {
+			if cycles[i].start != cycleSecondObservations[i].phenomenonTime {
+				t.Errorf("Expected %d as start of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i, cycles[i].start)
+			}
+		}
+
+		if i-1 >= 0 {
+			if cycles[i-1].end != cycleSecondObservations[i].phenomenonTime {
+				t.Errorf("Expected %d as end of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i-1, cycles[i].end)
+			}
+		}
+	}
+
+	// First cycle:
+	cycle = cycles[0]
+	for i := 0; i < len(cycle.results); i++ {
+		var resultIndex int8
+		if i < 30 {
+			resultIndex = 0
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		}
+	}
+
+	// Second cycle:
+	cycle = cycles[1]
+	for i := 0; i < len(cycle.results); i++ {
+		var resultIndex int8
+		if i < 30 {
+			resultIndex = 0
+			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
+				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
+			}
+		}
+	}
+}
+
+func TestReconstructCyclesComplete(t *testing.T) {
 	name := "test_name"
 	validation := false
 	retrieveAllCycleCleanupStats := false
@@ -262,85 +636,22 @@ func TestReconstructCycles(t *testing.T) {
 			}
 		}
 	}
+}
 
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
-
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
-
-	if skippedCycles > 0 {
-		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
-	}
-
-	if !primarySignalMissing {
-		t.Errorf("Expected %t for primarySignalMissing, got %t", true, primarySignalMissing)
-	}
-
-	if !cycleSecondMissing {
-		t.Errorf("Expected %t for cycleSecondMissing, got %t", true, cycleSecondMissing)
-	}
-
-	if len(cycles) != 0 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
-	}
-
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
-
-	primarySignalObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
-		{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
-		{int32(time.Date(2023, 10, 20, 0, 0, 20, 0, location).Unix()), 4},
-		{int32(time.Date(2023, 10, 20, 0, 0, 35, 0, location).Unix()), 5},
-		{int32(time.Date(2023, 10, 20, 0, 0, 42, 0, location).Unix()), 6},
-		{int32(time.Date(2023, 10, 20, 0, 0, 50, 0, location).Unix()), 1},
-		{int32(time.Date(2023, 10, 20, 0, 0, 55, 0, location).Unix()), 3},
-		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 4},
-		{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
-	}
-
-	for i := 0; i < len(primarySignalObservations); i++ {
-		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
-	}
-
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
-
-	if skippedCycles > 0 {
-		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
-	}
-
-	if primarySignalMissing {
-		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
-	}
-
-	if !cycleSecondMissing {
-		t.Errorf("Expected %t for cycleSecondMissing, got %t", true, cycleSecondMissing)
-	}
-
-	if len(cycles) != 0 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
-	}
-
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
-
-	primarySignalObservations = []Observation{
-		{int32(time.Date(2023, 10, 21, 0, 0, 0, 0, location).Unix()), 2},
-		{int32(time.Date(2023, 10, 21, 0, 0, 10, 0, location).Unix()), 3},
-		{int32(time.Date(2023, 10, 21, 0, 0, 20, 0, location).Unix()), 4},
-		{int32(time.Date(2023, 10, 21, 0, 0, 35, 0, location).Unix()), 5},
-		{int32(time.Date(2023, 10, 21, 0, 0, 42, 0, location).Unix()), 6},
-		{int32(time.Date(2023, 10, 21, 0, 0, 50, 0, location).Unix()), 1},
-		{int32(time.Date(2023, 10, 21, 0, 0, 55, 0, location).Unix()), 3},
-		{int32(time.Date(2023, 10, 21, 0, 1, 0, 0, location).Unix()), 4},
-		{int32(time.Date(2023, 10, 21, 0, 1, 10, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 21, 0, 1, 20, 0, location).Unix()), 1},
-	}
-
-	cycleSecondObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
-	}
+func checkInvalidCycle(
+	t *testing.T,
+	primarySignalObservations []Observation,
+	cycleSecondObservations []Observation,
+	expectedTotalCycles int,
+	expectedCleanedUpCycles int,
+	expectedInvalidTransitionCount int32,
+	expectedMissingObservationCount int32,
+	expectedInvalidLengthCount int32,
+) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := true
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
 
 	for i := 0; i < len(primarySignalObservations); i++ {
 		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
@@ -350,119 +661,7 @@ func TestReconstructCycles(t *testing.T) {
 		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
 	}
 
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
-
-	if skippedCycles != 3 {
-		t.Errorf("Expected %d skipped cycles, got %d", 3, skippedCycles)
-	}
-
-	if primarySignalMissing {
-		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
-	}
-
-	if cycleSecondMissing {
-		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
-	}
-
-	if len(cycles) != 0 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 0, len(cycles))
-	}
-
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
-
-	primarySignalObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 4},
-		{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
-	}
-
-	cycleSecondObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
-	}
-
-	for i := 0; i < len(primarySignalObservations); i++ {
-		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
-	}
-
-	for i := 0; i < len(cycleSecondObservations); i++ {
-		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
-	}
-
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
-
-	if skippedCycles != 2 {
-		t.Errorf("Expected %d skipped cycles, got %d", 2, skippedCycles)
-	}
-
-	if primarySignalMissing {
-		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
-	}
-
-	if cycleSecondMissing {
-		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
-	}
-
-	if len(cycles) != 1 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 1, len(cycles))
-	}
-
-	// Check start and end times of cycles
-	cycleStart := cycles[0].start
-	cycleEnd := cycles[0].end
-
-	if cycleStart != cycleSecondObservations[2].phenomenonTime {
-		t.Errorf("Expected %d as start of cycle, got %d", cycleSecondObservations[2].phenomenonTime, cycleStart)
-	}
-	if cycleEnd != cycleSecondObservations[3].phenomenonTime {
-		t.Errorf("Expected %d as end of cycle, got %d", cycleSecondObservations[3].phenomenonTime, cycleEnd)
-	}
-
-	cycle = cycles[0]
-	for i := 0; i < len(cycle.results); i++ {
-		var resultIndex int8
-		if i < 10 {
-			resultIndex = 0
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		} else if i < 20 {
-			resultIndex = 1
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		} else if i < 30 {
-			resultIndex = 2
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		}
-	}
-
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
-
-	primarySignalObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
-		{int32(time.Date(2023, 10, 20, 0, 1, 20, 0, location).Unix()), 1},
-	}
-
-	cycleSecondObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
-	}
-
-	for i := 0; i < len(primarySignalObservations); i++ {
-		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
-	}
-
-	for i := 0; i < len(cycleSecondObservations); i++ {
-		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
-	}
-
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
+	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing := thing.reconstructCycles()
 
 	if skippedCycles != 0 {
 		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
@@ -476,129 +675,351 @@ func TestReconstructCycles(t *testing.T) {
 		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
 	}
 
-	if len(cycles) != 2 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 2, len(cycles))
+	if len(cycles) != expectedTotalCycles {
+		t.Errorf("Expected %d reconstructed cycles, got %d", expectedTotalCycles, len(cycles))
 	}
 
-	// Check start and end times of cycles
-	for i := 0; i < len(cycles); i++ {
-		if i+1 < len(cycles) {
-			if cycles[i].start != cycleSecondObservations[i].phenomenonTime {
-				t.Errorf("Expected %d as start of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i, cycles[i].start)
-			}
-		}
+	cycles = thing.cleanUpCycles(cycles)
 
-		if i-1 >= 0 {
-			if cycles[i-1].end != cycleSecondObservations[i].phenomenonTime {
-				t.Errorf("Expected %d as end of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i-1, cycles[i].end)
-			}
-		}
+	if len(cycles) != expectedCleanedUpCycles {
+		t.Errorf("Expected %d cleaned up cycles, got %d", expectedCleanedUpCycles, len(cycles))
 	}
 
-	// First cycle:
-	cycle = cycles[0]
-	for i := 0; i < len(cycle.results); i++ {
-		var resultIndex int8
-		if i < 30 {
-			resultIndex = 0
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
+	if thing.TotalInvalidCycleMissingCount != expectedMissingObservationCount {
+		cycle := cycles[0]
+		println()
+		for _, result := range cycle.results {
+			print(result)
 		}
+		println()
+		t.Errorf("Expected %d cycle(s) with missing observations, got %d", expectedMissingObservationCount, thing.TotalInvalidCycleMissingCount)
 	}
 
-	// Second cycle:
-	cycle = cycles[1]
-	for i := 0; i < len(cycle.results); i++ {
-		var resultIndex int8
-		if i < 20 {
-			resultIndex = 0
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		} else if i < 30 {
-			resultIndex = 1
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		}
+	if thing.TotalInvalidCycleTransitionCount != expectedInvalidTransitionCount {
+		t.Errorf("Expected %d cycle(s) with invalid transitions, got %d", expectedInvalidTransitionCount, thing.TotalInvalidCycleTransitionCount)
 	}
 
-	thing = NewThing(name, validation, retrieveAllCycleCleanupStats)
+	if thing.TotalInvalidCycleLengthCount != expectedInvalidLengthCount {
+		t.Errorf("Expected %d cycle(s) with invalid length, got %d", expectedInvalidLengthCount, thing.TotalInvalidCycleLengthCount)
+	}
+
+}
+
+func TestCleanUpCycles(t *testing.T) {
+
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	// Red -> Amber is disallowed.
+	// Amber too long.
+
+	primarySignalObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 2},
+	}
+
+	cycleSecondObservations := []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		1,
+		0,
+	)
+
+	// Red -> Amber is disallowed.
 
 	primarySignalObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
-		{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 34, 0, location).Unix()), 1},
 	}
 
 	cycleSecondObservations = []Observation{
-		{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
 		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
-		{int32(time.Date(2023, 10, 20, 0, 1, 30, 0, location).Unix()), 0},
 	}
 
-	for i := 0; i < len(primarySignalObservations); i++ {
-		thing.AddObservation("primary_signal", primarySignalObservations[i].phenomenonTime, primarySignalObservations[i].result)
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
+
+	// Amber -> Green is disallowed.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 3},
 	}
 
-	for i := 0; i < len(cycleSecondObservations); i++ {
-		thing.AddObservation("cycle_second", cycleSecondObservations[i].phenomenonTime, cycleSecondObservations[i].result)
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
 	}
 
-	cycles, skippedCycles, primarySignalMissing, cycleSecondMissing = thing.reconstructCycles()
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
 
-	if skippedCycles != 0 {
-		t.Errorf("Expected %d skipped cycles, got %d", 0, skippedCycles)
+	// Amber -> RedAmber is disallowed.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 4, 0, location).Unix()), 1},
 	}
 
-	if primarySignalMissing {
-		t.Errorf("Expected %t for primarySignalMissing, got %t", false, primarySignalMissing)
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
 	}
 
-	if cycleSecondMissing {
-		t.Errorf("Expected %t for cycleSecondMissing, got %t", false, cycleSecondMissing)
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
+
+	// Green -> RedAmber is disallowed.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 4, 0, location).Unix()), 1},
 	}
 
-	if len(cycles) != 2 {
-		t.Errorf("Expected %d reconstructed cycles, got %d", 2, len(cycles))
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
 	}
 
-	// Check start and end times of cycles
-	for i := 0; i < len(cycles); i++ {
-		if i+1 < len(cycles) {
-			if cycles[i].start != cycleSecondObservations[i].phenomenonTime {
-				t.Errorf("Expected %d as start of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i, cycles[i].start)
-			}
-		}
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
 
-		if i-1 >= 0 {
-			if cycles[i-1].end != cycleSecondObservations[i].phenomenonTime {
-				t.Errorf("Expected %d as end of cycle number %d, got %d", cycleSecondObservations[i].phenomenonTime, i-1, cycles[i].end)
-			}
-		}
+	// RedAmber -> Red is disallowed.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 1},
 	}
 
-	// First cycle:
-	cycle = cycles[0]
-	for i := 0; i < len(cycle.results); i++ {
-		var resultIndex int8
-		if i < 30 {
-			resultIndex = 0
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		}
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
 	}
 
-	// Second cycle:
-	cycle = cycles[1]
-	for i := 0; i < len(cycle.results); i++ {
-		var resultIndex int8
-		if i < 30 {
-			resultIndex = 0
-			if int16(cycle.results[i]) != primarySignalObservations[resultIndex].result {
-				t.Errorf("Expected result %d at cycle index %d, got %d", primarySignalObservations[resultIndex].result, i, cycle.results[i])
-			}
-		}
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
+
+	// RedAmber -> Red is disallowed.
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 4, 0, location).Unix()), 1},
 	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		1,
+		0,
+		0,
+	)
+
+	// Amber too long (more than 6 seconds).
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 9, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		0,
+		1,
+		0,
+	)
+
+	// Amber not too long (less (or equal) than 6 seconds).
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 3},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 2},
+		{int32(time.Date(2023, 10, 20, 0, 0, 8, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		1,
+		0,
+		0,
+		0,
+	)
+
+	// Red Amber too long (more than 2 seconds).
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 5, 0, location).Unix()), 3},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		0,
+		0,
+		1,
+		0,
+	)
+
+	// Red Amber not too long (less (or equal) than 2 seconds).
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		{int32(time.Date(2023, 10, 20, 0, 0, 2, 0, location).Unix()), 4},
+		{int32(time.Date(2023, 10, 20, 0, 0, 4, 0, location).Unix()), 3},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		1,
+		0,
+		0,
+		0,
+	)
+
+	// One cycle too short
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 2, 10, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		3,
+		2,
+		0,
+		0,
+		1,
+	)
+
+	// One cycle too long
+
+	primarySignalObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+	}
+
+	cycleSecondObservations = []Observation{
+		{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		{int32(time.Date(2023, 10, 20, 0, 5, 0, 0, location).Unix()), 0},
+	}
+
+	checkInvalidCycle(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		3,
+		2,
+		0,
+		0,
+		1,
+	)
+
 }
