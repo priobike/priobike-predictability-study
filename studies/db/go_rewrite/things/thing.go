@@ -97,7 +97,7 @@ func (thing *Thing) AddObservation(layerName string, phenomenonTime int32, resul
 
 func (thing *Thing) validateCycles(cycles []cycle) {
 	if len(cycles) == 0 {
-		print("No cycles to validate.")
+		// print("No cycles to validate.")
 		return
 	}
 
@@ -135,6 +135,8 @@ func (thing *Thing) validateCycles(cycles []cycle) {
 	checked_count := 0
 
 	for checked_count < 50 {
+		checked_count++
+
 		// Random cycle
 		cycle := cycles[rand.Intn(len(cycles))]
 
@@ -178,8 +180,6 @@ func (thing *Thing) validateCycles(cycles []cycle) {
 		if primarySignalObservationsFound != 1 {
 			panic("Attention: No or multiple corresponding primary signal observations found. This should not happen and is a bug.")
 		}
-
-		checked_count++
 	}
 }
 
@@ -370,9 +370,17 @@ func (thing *Thing) reconstructCycles() ([]cycle, int32, bool, bool) {
 	for tickerSecond <= cycleSecondObservations[len(cycleSecondObservations)-1].phenomenonTime {
 		// First cycle
 		if cycleTimeStart == nil {
+			if cycleSecondIndex+1 >= cycleSecondObservationsCount {
+				// End of data ("+ 1") because we also need to have an end for the cycle
+				break
+			}
 			cycleTimeStart = &cycleSecondObservations[cycleSecondIndex].phenomenonTime
 		}
 		if cycleTimeEnd == nil {
+			if cycleSecondIndex+1 >= cycleSecondObservationsCount {
+				// End of data ("+ 1") because we also need to have an end for the cycle
+				break
+			}
 			cycleTimeEnd = &cycleSecondObservations[cycleSecondIndex+1].phenomenonTime
 		}
 

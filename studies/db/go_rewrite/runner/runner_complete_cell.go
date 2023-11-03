@@ -23,7 +23,7 @@ func RunCompleteCell() {
 		processedThingsByRoutines[idx] = map[string]*things.Thing{}
 	}
 
-	validationActive := false
+	validationActive := true
 	retrieveAllCycleCleanupStats := true
 
 	tp := things.NewThingsProvider(false)
