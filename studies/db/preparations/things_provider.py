@@ -74,6 +74,15 @@ class ThingsProvider:
                     datastreams.append(datastream)
             self.things[i]["Datastreams"] = datastreams
 
+    def filter_custom_layer_name(self, layer_name: str):
+        for i in range(len(self.things)):
+            datastreams = []
+            thing = self.things[i]
+            for datastream in thing["Datastreams"]:
+                if datastream["properties"]["layerName"] == layer_name:
+                    datastreams.append(datastream)
+            self.things[i]["Datastreams"] = datastreams
+
     def get_datastreams(self):
         datastreams = []
         for thing in self.things:
