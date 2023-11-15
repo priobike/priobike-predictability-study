@@ -1876,7 +1876,7 @@ func checkGreenIndices(
 	primarySignalObservations [4][]Observation,
 	cycleSecondObservations [4][]Observation,
 	expectedIndicesPerCycle [][][]int,
-	expectedMetric *float64,
+	expectedMetric float64,
 ) {
 	name := "test_name"
 	validation := false
@@ -1912,15 +1912,15 @@ func checkGreenIndices(
 
 	thing.CalculateMetrics(1, 1)
 
-	if expectedMetric != nil {
-		if thing.MedianShifts[1][1] == nil {
-			t.Errorf("Expected metric %f, got nil", *expectedMetric)
-		}else if *(thing.MedianShifts[1][1]) != *expectedMetric {
-			t.Errorf("Expected median shifts %f, got %f", *expectedMetric, *thing.MedianShifts[1][1])
+	if expectedMetric != -999999 {
+		if thing.MedianShifts[1][1] == -999999 {
+			t.Errorf("Expected metric %f, got -999999", expectedMetric)
+		}else if thing.MedianShifts[1][1] != expectedMetric {
+			t.Errorf("Expected median shifts %f, got %f", expectedMetric, thing.MedianShifts[1][1])
 		}
 	} else {
-		if thing.MedianShifts[1][1] != nil {
-			t.Errorf("Expected nil median shifts, got %f", *thing.MedianShifts[1][1])
+		if thing.MedianShifts[1][1] != -999999 {
+			t.Errorf("Expected -999999 median shifts, got %f", thing.MedianShifts[1][1])
 		}
 	}
 }
@@ -2031,7 +2031,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		&expectedMetric,
+		expectedMetric,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2093,7 +2093,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2163,7 +2163,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2223,7 +2223,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2281,7 +2281,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 
 	checkRelativeGreenDistancesMetric(
@@ -2369,7 +2369,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		&expectedMetric,
+		expectedMetric,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2446,7 +2446,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		&expectedMetric,
+		expectedMetric,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2522,7 +2522,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2596,7 +2596,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		nil,
+		-999999,
 	)
 }
 
