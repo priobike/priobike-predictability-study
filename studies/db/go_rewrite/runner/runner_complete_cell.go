@@ -17,7 +17,7 @@ type ObservationFromDb struct {
 	DatastreamId   int32
 }
 
-func RunCompleteCell() {
+func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]*things.Thing {
 	processedThingsByRoutines := [7]map[string]*things.Thing{}
 	for idx := range processedThingsByRoutines {
 		processedThingsByRoutines[idx] = map[string]*things.Thing{}
@@ -26,9 +26,6 @@ func RunCompleteCell() {
 	validationActive := true
 	retrieveAllCycleCleanupStats := true
 
-	tp := things.NewThingsProvider(false)
-	tp.FilterOnlyPrimarySignalAndCycleSecondDatastreams()
-	tldThings := tp.Things
 	datastreamsByThingName := map[string]map[string]int32{}
 	thingsByDatastreamId := map[int32]string{}
 	for _, tldThing := range tldThings {
@@ -100,7 +97,7 @@ func RunCompleteCell() {
 					thingName := thingsByDatastreamId[datastream_id]
 					thing := (*things)[thingName]
 					layerName := ""
-					if datastream_id == datastreamsByThingName[thingName]["primary_signal"] {
+					if datastream_id == datastreamsByThingName[thingName]["primary_signal"] || datastream_id == datastreamsByThingName[thingName]["secondary_signal"] {
 						layerName = "primary_signal"
 					} else if datastream_id == datastreamsByThingName[thingName]["cycle_second"] {
 						layerName = "cycle_second"
@@ -136,20 +133,47 @@ func RunCompleteCell() {
 	processedThings := map[string]*things.Thing{}
 	for dayIdx, processedThingsByRoutine := range processedThingsByRoutines {
 		for thingName, thing := range processedThingsByRoutine {
-			if _, ok := processedThings[thingName]; !ok {
-				processedThings[thingName] = thing
+			name := thingName + suffixName
+			if _, ok := processedThings[name]; !ok {
+				processedThings[name] = thing
 			} else {
-				processedThings[thingName].PrimarySignalMissingCount += thing.PrimarySignalMissingCount
-				processedThings[thingName].CycleSecondMissingCount += thing.CycleSecondMissingCount
-				processedThings[thingName].TotalSkippedCycles += thing.TotalSkippedCycles
-				processedThings[thingName].TotalCyclesCount += thing.TotalCyclesCount
-				processedThings[thingName].TotalRemovedCycleCount += thing.TotalRemovedCycleCount
-				processedThings[thingName].TotalInvalidCycleLengthCount += thing.TotalInvalidCycleLengthCount
-				processedThings[thingName].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount
-				processedThings[thingName].TotalInvalidCycleMissingCount += thing.TotalInvalidCycleMissingCount
-				processedThings[thingName].Metrics[dayIdx] = thing.Metrics[dayIdx]
+				processedThings[name].PrimarySignalMissingCount += thing.PrimarySignalMissingCount
+				processedThings[name].CycleSecondMissingCount += thing.CycleSecondMissingCount
+				processedThings[name].TotalSkippedCycles += thing.TotalSkippedCycles
+				processedThings[name].TotalCyclesCount += thing.TotalCyclesCount
+				processedThings[name].TotalRemovedCycleCount += thing.TotalRemovedCycleCount
+				processedThings[name].TotalInvalidCycleLengthCount += thing.TotalInvalidCycleLengthCount
+				processedThings[name].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount
+				processedThings[name].TotalInvalidCycleMissingCount += thing.TotalInvalidCycleMissingCount
+				processedThings[name].Metrics[dayIdx] = thing.Metrics[dayIdx]
 			}
 		}
+	}
+
+	return processedThings
+}
+
+func Run() {
+	processedThings := map[string]*things.Thing{}
+
+	tp := things.NewThingsProvider(false)
+	tp.FilterOnlyPrimarySignalAndCycleSecondDatastreams()
+	tldThingsPrimary := tp.Things
+
+	primaryProcessedThings := RunCompleteCell(tldThingsPrimary, "_primary")
+
+	for thingName, thing := range primaryProcessedThings {
+		processedThings[thingName] = thing
+	}
+
+	tp = things.NewThingsProvider(false)
+	tp.FilterOnlySecondarySignalAndCycleSecondDatastreams()
+	tldThingsSecondary := tp.Things
+
+	secondaryProcessedThings := RunCompleteCell(tldThingsSecondary, "_secondary")
+
+	for thingName, thing := range secondaryProcessedThings {
+		processedThings[thingName] = thing
 	}
 
 	// Output processed things as json file

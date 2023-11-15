@@ -59,7 +59,9 @@ type Thing struct {
 	TotalInvalidCycleMissingCount    int32
 
 	// Metrics
-	Metrics [7][24]float64
+	Metrics      [7][24]float64
+	MetricsSP    [7][24]float64
+	MedianShifts [7][24]float64
 }
 
 func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *Thing {
@@ -226,10 +228,66 @@ func (thing *Thing) phaseWiseDistance(cycle1 cycle, cycle2 cycle) float64 {
 	return distance
 }
 
+func (thing *Thing) getGreenProbabilities(cycles []cycle) []float64 {
+	probabilities := make([]float64, 0)
+	maxLength := 0
+	for _, cycle := range cycles {
+		if len(cycle.results) > maxLength {
+			maxLength = len(cycle.results)
+		}
+	}
+	for i := 0; i < maxLength; i++ {
+		greenCount := 0
+		cyclesWithThatLengthCount := 0
+		for _, cycle := range cycles {
+			if i >= len(cycle.results) {
+				continue
+			}
+			cyclesWithThatLengthCount++
+			if cycle.results[i] == 3 {
+				greenCount++
+			}
+		}
+		probabilities = append(probabilities, float64(greenCount)/float64(cyclesWithThatLengthCount))
+	}
+
+	return probabilities
+}
+
+func (thing *Thing) getGreenReliabilities(greenProbabilities []float64) []float64 {
+	reliabilities := make([]float64, 0)
+	for _, probability := range greenProbabilities {
+		if probability > 0.5 {
+			reliabilities = append(reliabilities, 1.0-probability)
+		} else {
+			reliabilities = append(reliabilities, probability)
+		}
+	}
+
+	return reliabilities
+}
+
+func (thing *Thing) getGreenIndices(cycle cycle) []int {
+	indices := make([]int, 0)
+	previousResult := int8(-1)
+	for idx, result := range cycle.results {
+		if previousResult != result && result == 3 {
+			indices = append(indices, idx)
+		}
+		previousResult = result
+	}
+
+	return indices
+}
+
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
+	cycles := []cycle{}
+	greenIndices := make([][]int, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
+			cycles = append(cycles, cycle)
+			greenIndices = append(greenIndices, thing.getGreenIndices(cycle))
 			if idx >= len(cellCycles)-1 {
 				break
 			}
@@ -237,24 +295,53 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		}
 	}
 
+	greenDiffs := make([]float64, 0)
+	maxGreenPhasesPerCycle := 0
+	for _, indices := range greenIndices {
+		if len(indices) > maxGreenPhasesPerCycle {
+			maxGreenPhasesPerCycle = len(indices)
+		}
+	}
+	for i := 0; i < maxGreenPhasesPerCycle; i++ {
+		for idx, indices := range greenIndices {
+			if idx >= len(greenIndices)-1 {
+				break
+			}
+			greenDiffs = append(greenDiffs, float64(greenIndices[idx+1][i]-indices[i]))
+		}
+	}
+
+	if len(greenDiffs) == 0 {
+		thing.MedianShifts[day][hour] = -1
+	} else {
+		medianShift, err := stats.Median(greenDiffs)
+		if err != nil {
+			panic(err)
+		}
+		thing.MedianShifts[day][hour] = medianShift
+	}
+
+	if len(cycles) == 0 {
+		thing.MetricsSP[day][hour] = -1.0
+	} else {
+		greenProbabilites := thing.getGreenProbabilities(cycles)
+		greenReliabilites := thing.getGreenReliabilities(greenProbabilites)
+		medianGreenReliability, err := stats.Median(greenReliabilites)
+		if err != nil {
+			panic(err)
+		}
+		thing.MetricsSP[day][hour] = medianGreenReliability
+	}
+
 	if len(distances) == 0 {
 		thing.Metrics[day][hour] = -1.0
-		thing.cycles = [4][]cycle{
-			{},
-			{},
-			{},
-			{},
+	} else {
+		medianDistance, err := stats.Median(distances)
+		if err != nil {
+			panic(err)
 		}
-		return
+		thing.Metrics[day][hour] = medianDistance
 	}
-
-	medianDistance, err := stats.Median(distances)
-	if err != nil {
-		panic(err)
-	}
-
-	thing.Metrics[day][hour] = medianDistance
-
 	thing.cycles = [4][]cycle{
 		{},
 		{},

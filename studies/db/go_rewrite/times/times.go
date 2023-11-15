@@ -1,10 +1,11 @@
 package times
 
 import (
+	"fmt"
 	"time"
 )
 
-/* func DebugPrint() {
+func DebugPrint() {
 	monday := GetMondayHours()
 	tuesday := GetTuesdayHours()
 	wednesday := GetWednesdayHours()
@@ -33,7 +34,7 @@ import (
 		print("---------------------------------------------------")
 		println()
 	}
-} */
+}
 
 func GetCells() [7][24][4][2]int32 {
 	var result [7][24][4][2]int32
@@ -43,33 +44,33 @@ func GetCells() [7][24][4][2]int32 {
 	return result
 }
 
-/* func GetSundayHours() [24][4][2]int32 {
-	return GetDayHours(0)
+func GetSundayHours() [24][4][2]int32 {
+	return getDayHours(0)
 }
 
 func GetMondayHours() [24][4][2]int32 {
-	return GetDayHours(1)
+	return getDayHours(1)
 }
 
 func GetTuesdayHours() [24][4][2]int32 {
-	return GetDayHours(2)
+	return getDayHours(2)
 }
 
 func GetWednesdayHours() [24][4][2]int32 {
-	return GetDayHours(3)
+	return getDayHours(3)
 }
 
 func GetThursdayHours() [24][4][2]int32 {
-	return GetDayHours(4)
+	return getDayHours(4)
 }
 
 func GetFridayHours() [24][4][2]int32 {
-	return GetDayHours(5)
+	return getDayHours(5)
 }
 
 func GetSaturdayHours() [24][4][2]int32 {
-	return GetDayHours(6)
-} */
+	return getDayHours(6)
+}
 
 // Function that returns a list that containts 24 lists of 4 tuples.package times
 // Each of the 24 lists stands for a hour of the day.
