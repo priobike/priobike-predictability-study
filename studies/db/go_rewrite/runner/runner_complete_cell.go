@@ -38,7 +38,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 			processedThingsByRoutines[idx][tldThing.Name] = thing
 		}
 		for i := 0; i < len(tldThing.Datastreams); i++ {
-			if tldThing.Datastreams[i].Properties.LayerName == "primary_signal" {
+			if tldThing.Datastreams[i].Properties.LayerName == "primary_signal" || tldThing.Datastreams[i].Properties.LayerName == "secondary_signal" {
 				if _, ok := datastreamsByThingName[tldThing.Name]; !ok {
 					datastreamsByThingName[tldThing.Name] = map[string]int32{}
 				}
@@ -97,7 +97,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 					thingName := thingsByDatastreamId[datastream_id]
 					thing := (*things)[thingName]
 					layerName := ""
-					if datastream_id == datastreamsByThingName[thingName]["primary_signal"] || datastream_id == datastreamsByThingName[thingName]["secondary_signal"] {
+					if datastream_id == datastreamsByThingName[thingName]["primary_signal"] {
 						layerName = "primary_signal"
 					} else if datastream_id == datastreamsByThingName[thingName]["cycle_second"] {
 						layerName = "cycle_second"
@@ -146,6 +146,9 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 				processedThings[name].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount
 				processedThings[name].TotalInvalidCycleMissingCount += thing.TotalInvalidCycleMissingCount
 				processedThings[name].Metrics[dayIdx] = thing.Metrics[dayIdx]
+				processedThings[name].MetricsSP[dayIdx] = thing.MetricsSP[dayIdx]
+				processedThings[name].MedianShifts[dayIdx] = thing.MedianShifts[dayIdx]
+				processedThings[name].MetricsRelativeGreenDistance[dayIdx] = thing.MetricsRelativeGreenDistance[dayIdx]
 			}
 		}
 	}

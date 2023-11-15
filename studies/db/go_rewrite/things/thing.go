@@ -60,8 +60,9 @@ type Thing struct {
 
 	// Metrics
 	Metrics      [7][24]float64
+	MetricsRelativeGreenDistance [7][24]float64
 	MetricsSP    [7][24]float64
-	MedianShifts [7][24]float64
+	MedianShifts [7][24]*float64
 }
 
 func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *Thing {
@@ -228,6 +229,47 @@ func (thing *Thing) phaseWiseDistance(cycle1 cycle, cycle2 cycle) float64 {
 	return distance
 }
 
+func (thing *Thing) getGreenRelativeDistance(cycle1 cycle, cycle2 cycle) *float64 {
+	distance := 0.0
+	length := max(len(cycle1.results), len(cycle2.results))
+	greenLength1 := 0.0
+	greenLength2 := 0.0
+	for i := 0; i < length; i++ {
+		if i >= len(cycle1.results) {
+			if cycle2.results[i] == 3 {
+				greenLength2 += 1.0
+				distance += 1.0
+			}
+			continue
+		}
+		if i >= len(cycle2.results) {
+			if cycle1.results[i] == 3 {
+				greenLength1 += 1.0
+				distance += 1.0
+			}
+			continue
+		}
+		if cycle1.results[i] == 3 {
+			greenLength1 += 1.0
+		}
+		if cycle2.results[i] == 3 {
+			greenLength2 += 1.0
+		}
+		if cycle1.results[i] != cycle2.results[i] && (cycle1.results[i] == 3 || cycle2.results[i] == 3) {
+			distance += 1.0
+		}
+	}
+
+	maxGreenLength := max(greenLength1, greenLength2)
+	if maxGreenLength == 0.0 {
+		return nil
+	}
+	relativeDistance := distance / maxGreenLength
+
+	return &relativeDistance
+}
+
+
 func (thing *Thing) getGreenProbabilities(cycles []cycle) []float64 {
 	probabilities := make([]float64, 0)
 	maxLength := 0
@@ -268,10 +310,17 @@ func (thing *Thing) getGreenReliabilities(greenProbabilities []float64) []float6
 }
 
 func (thing *Thing) getGreenIndices(cycle cycle) []int {
+	// 3 = green
+	// Looking for the indices where the result changes from something else to green or from green to something else.
 	indices := make([]int, 0)
 	previousResult := int8(-1)
 	for idx, result := range cycle.results {
 		if previousResult != result && result == 3 {
+			indices = append(indices, idx)
+		} else if previousResult == 3 && result != 3 {
+			indices = append(indices, idx-1)
+		} 
+		if idx == len(cycle.results)-1 && result == 3 {
 			indices = append(indices, idx)
 		}
 		previousResult = result
@@ -282,43 +331,45 @@ func (thing *Thing) getGreenIndices(cycle cycle) []int {
 
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
+	relativeGreenDistances := make([]float64, 0)
+	totalGreenDiffs := make([]float64, 0)
 	cycles := []cycle{}
-	greenIndices := make([][]int, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
 			cycles = append(cycles, cycle)
-			greenIndices = append(greenIndices, thing.getGreenIndices(cycle))
+			greenIndices := thing.getGreenIndices(cycle)
 			if idx >= len(cellCycles)-1 {
 				break
 			}
-			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
-		}
-	}
+			nextGreenIndices := thing.getGreenIndices(cellCycles[idx+1])
 
-	greenDiffs := make([]float64, 0)
-	maxGreenPhasesPerCycle := 0
-	for _, indices := range greenIndices {
-		if len(indices) > maxGreenPhasesPerCycle {
-			maxGreenPhasesPerCycle = len(indices)
-		}
-	}
-	for i := 0; i < maxGreenPhasesPerCycle; i++ {
-		for idx, indices := range greenIndices {
-			if idx >= len(greenIndices)-1 {
-				break
+			maxGreenIndicesPerCycle := max(len(greenIndices), len(nextGreenIndices))
+			
+			for i := 0; i < maxGreenIndicesPerCycle; i++ {
+				if i >= len(greenIndices) || i >= len(nextGreenIndices) {
+					continue
+				}
+
+				totalGreenDiffs = append(totalGreenDiffs, float64(nextGreenIndices[i]-greenIndices[i]))
 			}
-			greenDiffs = append(greenDiffs, float64(greenIndices[idx+1][i]-indices[i]))
+
+
+			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
+			relativeDistance := thing.getGreenRelativeDistance(cycle, cellCycles[idx+1])
+			if relativeDistance != nil {
+				relativeGreenDistances = append(relativeGreenDistances, *relativeDistance)
+			}
 		}
 	}
 
-	if len(greenDiffs) == 0 {
-		thing.MedianShifts[day][hour] = -1
-	} else {
-		medianShift, err := stats.Median(greenDiffs)
+	if len(totalGreenDiffs) == 0 {
+		thing.MedianShifts[day][hour] = nil	
+	}else {
+		medianShift, err := stats.Median(totalGreenDiffs)
 		if err != nil {
 			panic(err)
 		}
-		thing.MedianShifts[day][hour] = medianShift
+		thing.MedianShifts[day][hour] = &medianShift
 	}
 
 	if len(cycles) == 0 {
@@ -331,6 +382,16 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			panic(err)
 		}
 		thing.MetricsSP[day][hour] = medianGreenReliability
+	}
+
+	if len(relativeGreenDistances) == 0 {
+		thing.MetricsRelativeGreenDistance[day][hour] = -1.0
+	} else {
+		medianRelativeGreenDistance, err := stats.Median(relativeGreenDistances)
+		if err != nil {
+			panic(err)
+		}
+		thing.MetricsRelativeGreenDistance[day][hour] = medianRelativeGreenDistance
 	}
 
 	if len(distances) == 0 {

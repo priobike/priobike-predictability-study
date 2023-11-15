@@ -1200,6 +1200,44 @@ func checkMetric(
 	}
 }
 
+func checkRelativeGreenDistancesMetric(
+	t *testing.T,
+	primarySignalObservations [4][]Observation,
+	cycleSecondObservations [4][]Observation,
+	expectedMetric float64,
+	dayIdx int,
+	hourIdx int,
+) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := true
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	for cellIdx := 0; cellIdx < 4; cellIdx++ {
+		for i := 0; i < len(primarySignalObservations[cellIdx]); i++ {
+			thing.AddObservation("primary_signal", primarySignalObservations[cellIdx][i].phenomenonTime, primarySignalObservations[cellIdx][i].result)
+		}
+
+		for i := 0; i < len(cycleSecondObservations[cellIdx]); i++ {
+			thing.AddObservation("cycle_second", cycleSecondObservations[cellIdx][i].phenomenonTime, cycleSecondObservations[cellIdx][i].result)
+		}
+
+		thing.CalcCycles(cellIdx)
+		if len(thing.observationsByDatastreams["primary_signal"]) != 0 {
+			t.Errorf("Expected %d observations for primary_signal, got %d", 0, len(thing.observationsByDatastreams["primary_signal"]))
+		}
+		if len(thing.observationsByDatastreams["cycle_second"]) != 0 {
+			t.Errorf("Expected %d observations for cycle_second, got %d", 0, len(thing.observationsByDatastreams["cycle_second"]))
+		}
+	}
+
+	thing.CalculateMetrics(dayIdx, hourIdx)
+
+	if thing.MetricsRelativeGreenDistance[dayIdx][hourIdx] != expectedMetric {
+		t.Errorf("Expected relative green distance metric %f, got %f", expectedMetric, thing.MetricsRelativeGreenDistance[dayIdx][hourIdx])
+	}
+}
+
 func TestCalcMetric(t *testing.T) {
 	location, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
@@ -1282,6 +1320,15 @@ func TestCalcMetric(t *testing.T) {
 	}
 
 	checkMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		0,
+		1,
+		1,
+	)
+
+	checkRelativeGreenDistancesMetric(
 		t,
 		primarySignalObservations,
 		cycleSecondObservations,
@@ -1829,7 +1876,7 @@ func checkGreenIndices(
 	primarySignalObservations [4][]Observation,
 	cycleSecondObservations [4][]Observation,
 	expectedIndicesPerCycle [][][]int,
-	expectedMetric float64,
+	expectedMetric *float64,
 ) {
 	name := "test_name"
 	validation := false
@@ -1865,8 +1912,16 @@ func checkGreenIndices(
 
 	thing.CalculateMetrics(1, 1)
 
-	if thing.MedianShifts[1][1] != expectedMetric {
-		t.Errorf("Expected median shifts %f, got %f", expectedMetric, thing.MedianShifts[1][1])
+	if expectedMetric != nil {
+		if thing.MedianShifts[1][1] == nil {
+			t.Errorf("Expected metric %f, got nil", *expectedMetric)
+		}else if *(thing.MedianShifts[1][1]) != *expectedMetric {
+			t.Errorf("Expected median shifts %f, got %f", *expectedMetric, *thing.MedianShifts[1][1])
+		}
+	} else {
+		if thing.MedianShifts[1][1] != nil {
+			t.Errorf("Expected nil median shifts, got %f", *thing.MedianShifts[1][1])
+		}
 	}
 }
 
@@ -1929,20 +1984,20 @@ func TestGreenShifts(t *testing.T) {
 
 	expectedGreenIndicesPerCycle := [][][]int{
 		{
-			{12},
-			{12},
+			{12, 39},
+			{12, 39},
 		},
 		{
-			{12},
-			{12},
+			{12, 39},
+			{12, 39},
 		},
 		{
-			{12},
-			{12},
+			{12, 39},
+			{12, 39},
 		},
 		{
-			{12},
-			{12},
+			{12, 39},
+			{12, 39},
 		},
 	}
 
@@ -1970,12 +2025,13 @@ func TestGreenShifts(t *testing.T) {
 		},
 	}
 
+	expectedMetric := 0.0
 	checkGreenIndices(
 		t,
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		0,
+		&expectedMetric,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -1999,16 +2055,16 @@ func TestGreenShifts(t *testing.T) {
 
 	expectedGreenIndicesPerCycle = [][][]int{
 		{
-			{10},
+			{10, 14},
 		},
 		{
-			{9},
+			{9, 14},
 		},
 		{
-			{8},
+			{8, 14},
 		},
 		{
-			{7},
+			{7, 14},
 		},
 	}
 
@@ -2037,7 +2093,7 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		-1,
+		nil,
 	)
 
 	primarySignalObservations = [4][]Observation{
@@ -2069,16 +2125,16 @@ func TestGreenShifts(t *testing.T) {
 
 	expectedGreenIndicesPerCycle = [][][]int{
 		{
-			{13, 22},
+			{13, 14, 22, 29},
 		},
 		{
-			{12, 23},
+			{12, 14, 23, 29},
 		},
 		{
-			{11, 24},
+			{11, 14, 24, 29},
 		},
 		{
-			{10, 25},
+			{10, 14, 25, 29},
 		},
 	}
 
@@ -2107,6 +2163,563 @@ func TestGreenShifts(t *testing.T) {
 		primarySignalObservations,
 		cycleSecondObservations,
 		expectedGreenIndicesPerCycle,
-		0,
+		nil,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 7, 0, location).Unix()), 3},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{10, 14},
+		},
+		{
+			{},
+		},
+		{
+			{},
+		},
+		{
+			{7, 14},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+		},
+	}
+
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		nil,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{},
+		},
+		{
+			{},
+		},
+		{
+			{},
+		},
+		{
+			{},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+		},
+	}
+
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		nil,
+	)
+
+	checkRelativeGreenDistancesMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		-1.0,
+		1,
+		1,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 20, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 29, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 9, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 20, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 28, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 8, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 20, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 27, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 7, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 20, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 26, 0, location).Unix()), 3},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{10, 19},
+			{9, 19},
+		},
+		{
+			{9, 19},
+			{8, 19},
+		},
+		{
+			{8, 19},
+			{7, 19},
+		},
+		{
+			{7, 19},
+			{6, 19},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 20, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 20, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 20, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 20, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 0},
+		},
+	}
+
+	expectedMetric = -0.5
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		&expectedMetric,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 12, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 24, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 28, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 23, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 24, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 28, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 25, 0, location).Unix()), 3},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{10, 11},
+			{9, 12},
+		},
+		{
+			{12, 14, 23, 29},
+		},
+		{
+			{10, 11},
+			{9, 12},
+		},
+		{
+			{10, 14, 25, 29},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	expectedMetric = 0.0
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		&expectedMetric,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 9, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 12, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 13, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 23, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 9, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 13, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 25, 0, location).Unix()), 3},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{9, 11},
+			{},
+		},
+		{
+			{12, 14, 23, 29},
+		},
+		{
+			{9, 11},
+			{},
+		},
+		{
+			{10, 14, 25, 29},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		nil,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+		},
+	}
+
+	expectedGreenIndicesPerCycle = [][][]int{
+		{
+			{10, 14},
+			{},
+		},
+		{
+			{10, 14},
+			{},
+		},
+		{
+			{10, 14},
+			{},
+		},
+		{
+			{10, 14},
+			{},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	checkGreenIndices(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		expectedGreenIndicesPerCycle,
+		nil,
+	)
+}
+
+func TestRelativeGreenDistancesMetric(t *testing.T) {
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := [4][]Observation{
+		{ // Max length: 8, Distance: 6 (0.75)
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 13, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{ // Max length: 8, Distance: 4 (0.5)
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{ // Max length: 10, Distance: 6 (0.6)
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 20, 0, location).Unix()), 3},
+		},
+		{ // Max length: 5, Distance: 0 (0)
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 25, 0, location).Unix()), 3},
+		},
+	}
+
+	cycleSecondObservations := [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	checkRelativeGreenDistancesMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		0.55,
+		1,
+		1,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{ // Max length: 8, Distance: 8 (1)
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{ // Max length: 8, Distance: 8 (1)
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{ // Max length: 10, Distance: 6 (0.6)
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 20, 0, location).Unix()), 3},
+		},
+		{ // Max length: 5, Distance: 5 (1)
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 25, 0, location).Unix()), 3},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	checkRelativeGreenDistancesMetric(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		1,
+		1,
+		1,
 	)
 }
