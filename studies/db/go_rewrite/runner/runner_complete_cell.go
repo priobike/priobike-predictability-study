@@ -141,6 +141,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 				processedThings[name].CycleSecondMissingCount += thing.CycleSecondMissingCount
 				processedThings[name].TotalSkippedCycles += thing.TotalSkippedCycles
 				processedThings[name].TotalCyclesCount += thing.TotalCyclesCount
+				processedThings[name].GapsBetweenCyclesCount += thing.GapsBetweenCyclesCount
 				processedThings[name].TotalRemovedCycleCount += thing.TotalRemovedCycleCount
 				processedThings[name].TotalInvalidCycleLengthCount += thing.TotalInvalidCycleLengthCount
 				processedThings[name].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount

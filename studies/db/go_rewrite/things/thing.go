@@ -50,7 +50,8 @@ type Thing struct {
 	TotalSkippedCycles        int32
 
 	// General stats
-	TotalCyclesCount int32
+	TotalCyclesCount       int32
+	GapsBetweenCyclesCount int32
 
 	// Cleanup stats
 	TotalRemovedCycleCount           int32
@@ -85,10 +86,16 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 	thing.CycleSecondMissingCount = 0
 	thing.TotalSkippedCycles = 0
 	thing.TotalCyclesCount = 0
+	thing.GapsBetweenCyclesCount = 0
 	thing.TotalRemovedCycleCount = 0
 	thing.TotalInvalidCycleLengthCount = 0
 	thing.TotalInvalidCycleTransitionCount = 0
 	thing.TotalInvalidCycleMissingCount = 0
+	thing.Metrics = [7][24]float64{}
+	thing.MetricsRelativeGreenDistance = [7][24]float64{}
+	thing.MetricsSP = [7][24]float64{}
+	thing.MedianShifts = [7][24]float64{}
+	thing.MedianGreenLengths = [7][24]float64{}
 	return thing
 }
 
@@ -353,6 +360,11 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			greenLengths = append(greenLengths, thing.getGreenLength(cycle))
 			if idx >= len(cellCycles)-1 {
 				break
+			}
+			if cycle.end != cellCycles[idx+1].start {
+				thing.GapsBetweenCyclesCount++
+				// There is a gap between the cycles
+				continue
 			}
 			nextGreenIndices := thing.getGreenIndices(cellCycles[idx+1])
 
