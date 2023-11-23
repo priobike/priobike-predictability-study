@@ -65,6 +65,7 @@ type Thing struct {
 	MetricsSP                    [7][24]float64
 	MedianShifts                 [7][24]float64
 	MedianGreenLengths           [7][24]float64
+	Results                      [7][24][]int8
 }
 
 func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *Thing {
@@ -96,6 +97,7 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 	thing.MetricsSP = [7][24]float64{}
 	thing.MedianShifts = [7][24]float64{}
 	thing.MedianGreenLengths = [7][24]float64{}
+	thing.Results = [7][24][]int8{}
 	return thing
 }
 
@@ -347,14 +349,29 @@ func (thing *Thing) getGreenLength(cycle cycle) float64 {
 	return greenLength
 }
 
+func resultInSlice(s []int8, e int8) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
 	relativeGreenDistances := make([]float64, 0)
 	totalGreenDiffs := make([]float64, 0)
 	greenLengths := make([]float64, 0)
 	cycles := []cycle{}
+	results := make([]int8, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
+			for _, result := range cycle.results {
+				if !resultInSlice(results, result) {
+					results = append(results, result)
+				}
+			}
 			cycles = append(cycles, cycle)
 			greenIndices := thing.getGreenIndices(cycle)
 			greenLengths = append(greenLengths, thing.getGreenLength(cycle))
@@ -385,6 +402,8 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			}
 		}
 	}
+
+	thing.Results[day][hour] = results
 
 	if len(greenLengths) == 0 {
 		thing.MedianGreenLengths[day][hour] = -1.0

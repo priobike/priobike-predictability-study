@@ -151,6 +151,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 				processedThings[name].MedianShifts[dayIdx] = thing.MedianShifts[dayIdx]
 				processedThings[name].MetricsRelativeGreenDistance[dayIdx] = thing.MetricsRelativeGreenDistance[dayIdx]
 				processedThings[name].MedianGreenLengths[dayIdx] = thing.MedianGreenLengths[dayIdx]
+				processedThings[name].Results[dayIdx] = thing.Results[dayIdx]
 			}
 		}
 	}

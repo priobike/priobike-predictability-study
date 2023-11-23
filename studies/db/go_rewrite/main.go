@@ -1,11 +1,12 @@
 package main
 
 import (
-	"studies/runner"
+	"studies/times"
 )
 
 func main() {
-	runner.Run()
+	//runner.Run()
+	times.DebugPrint()
 	//times.DebugPrint()
 	// Wait forever.
 	// select {}

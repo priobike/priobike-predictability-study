@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+func TimestampToDateAndHourString(timestamps [4][2]int32) {
+	for i := 0; i < 4; i++ {
+		start := timestamps[i][0]
+		end := timestamps[i][1]
+		startString := time.Unix(int64(start), 0).Format("2006-01-02 15:04:05")
+		endString := time.Unix(int64(end), 0).Format("2006-01-02 15:04:05")
+		fmt.Printf("Start: %v, End: %v\n", startString, endString)
+	}
+}
+
 func DebugPrint() {
 	monday := GetMondayHours()
 	tuesday := GetTuesdayHours()
@@ -17,19 +27,19 @@ func DebugPrint() {
 	for i := 0; i < 24; i++ {
 		println("Hour: ", i)
 		println("Monday: ")
-		fmt.Printf("%v\n", monday[i])
+		TimestampToDateAndHourString(monday[i])
 		println("Tuesday: ")
-		fmt.Printf("%v\n", tuesday[i])
+		TimestampToDateAndHourString(tuesday[i])
 		println("Wednesday: ")
-		fmt.Printf("%v\n", wednesday[i])
+		TimestampToDateAndHourString(wednesday[i])
 		println("Thursday: ")
-		fmt.Printf("%v\n", thursday[i])
+		TimestampToDateAndHourString(thursday[i])
 		println("Friday: ")
-		fmt.Printf("%v\n", friday[i])
+		TimestampToDateAndHourString(friday[i])
 		println("Saturday: ")
-		fmt.Printf("%v\n", saturday[i])
+		TimestampToDateAndHourString(saturday[i])
 		println("Sunday: ")
-		fmt.Printf("%v\n", sunday[i])
+		TimestampToDateAndHourString(sunday[i])
 		println()
 		print("---------------------------------------------------")
 		println()
