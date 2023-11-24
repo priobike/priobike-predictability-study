@@ -2992,3 +2992,202 @@ func TestMedianGreenLength(t *testing.T) {
 		4.5,
 	)
 }
+
+func checkUniqueResults(
+	t *testing.T,
+	primarySignalObservations [4][]Observation,
+	cycleSecondObservations [4][]Observation,
+	expectedResults []int8,
+) {
+	name := "test_name"
+	validation := false
+	retrieveAllCycleCleanupStats := true
+	thing := NewThing(name, validation, retrieveAllCycleCleanupStats)
+
+	for cellIdx := 0; cellIdx < 4; cellIdx++ {
+		for i := 0; i < len(primarySignalObservations[cellIdx]); i++ {
+			thing.AddObservation("primary_signal", primarySignalObservations[cellIdx][i].phenomenonTime, primarySignalObservations[cellIdx][i].result)
+		}
+
+		for i := 0; i < len(cycleSecondObservations[cellIdx]); i++ {
+			thing.AddObservation("cycle_second", cycleSecondObservations[cellIdx][i].phenomenonTime, cycleSecondObservations[cellIdx][i].result)
+		}
+
+		thing.CalcCycles(cellIdx)
+		if len(thing.observationsByDatastreams["primary_signal"]) != 0 {
+			t.Errorf("Expected %d observations for primary_signal, got %d", 0, len(thing.observationsByDatastreams["primary_signal"]))
+		}
+		if len(thing.observationsByDatastreams["cycle_second"]) != 0 {
+			t.Errorf("Expected %d observations for cycle_second, got %d", 0, len(thing.observationsByDatastreams["cycle_second"]))
+		}
+	}
+
+	thing.CalculateMetrics(1, 1)
+
+	if len(thing.Results[1][1]) != len(expectedResults) {
+		t.Errorf("Expected %d unique results, got %d", len(expectedResults), len(thing.Results[1][1]))
+	}
+
+	for _, result := range thing.Results[1][1] {
+		contains := false
+		for _, expectedResult := range expectedResults {
+			if result == expectedResult {
+				contains = true
+				break
+			}
+		}
+		if !contains {
+			t.Errorf("Did not expect result %d", result)
+		}
+	}
+}
+
+func TestUniqueResults(t *testing.T) {
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic(err)
+	}
+
+	primarySignalObservations := [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 13, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 22, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 20, 0, location).Unix()), 3},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 25, 0, location).Unix()), 3},
+		},
+	}
+
+	uniqueResults := []int8{1, 3}
+
+	cycleSecondObservations := [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 0, 30, 0, location).Unix()), 0},
+		},
+
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 0, 30, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 15, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 0, 30, 0, location).Unix()), 0},
+		},
+	}
+
+	checkUniqueResults(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		uniqueResults,
+	)
+
+	primarySignalObservations = [4][]Observation{
+		{ // Distance: 2
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 2
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 1
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{ // Distance: 0
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 1, 46, 0, location).Unix()), 1},
+		},
+	}
+
+	uniqueResults = []int8{1, 2, 3, 4}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 2, 0, 0, location).Unix()), 0},
+		},
+	}
+
+	checkUniqueResults(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		uniqueResults,
+	)
+}

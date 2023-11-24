@@ -32,6 +32,20 @@ var MAX_STATE_LENGTHS = map[int8]int8{
 	4: 2,
 }
 
+type resultsSet struct {
+	list map[int8]struct{}
+}
+
+func (s *resultsSet) add(v int8) {
+	s.list[v] = struct{}{}
+}
+
+func newResultsSet() *resultsSet {
+	s := &resultsSet{}
+	s.list = make(map[int8]struct{})
+	return s
+}
+
 type Thing struct {
 	// Meta
 	name string
@@ -349,28 +363,17 @@ func (thing *Thing) getGreenLength(cycle cycle) float64 {
 	return greenLength
 }
 
-func resultInSlice(s []int8, e int8) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
 	relativeGreenDistances := make([]float64, 0)
 	totalGreenDiffs := make([]float64, 0)
 	greenLengths := make([]float64, 0)
 	cycles := []cycle{}
-	results := make([]int8, 0)
+	uniqueResults := newResultsSet()
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
 			for _, result := range cycle.results {
-				if !resultInSlice(results, result) {
-					results = append(results, result)
-				}
+				uniqueResults.add(result)
 			}
 			cycles = append(cycles, cycle)
 			greenIndices := thing.getGreenIndices(cycle)
@@ -403,6 +406,10 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		}
 	}
 
+	results := []int8{}
+	for result := range uniqueResults.list {
+		results = append(results, result)
+	}
 	thing.Results[day][hour] = results
 
 	if len(greenLengths) == 0 {

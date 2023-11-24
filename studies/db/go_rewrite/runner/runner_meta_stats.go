@@ -11,6 +11,20 @@ import (
 	"studies/times"
 )
 
+type set struct {
+	list map[string]struct{}
+}
+
+func (s *set) add(v string) {
+	s.list[v] = struct{}{}
+}
+
+func newSet() *set {
+	s := &set{}
+	s.list = make(map[string]struct{})
+	return s
+}
+
 func RunMetaStats(tldThings []things.TLDThing) (uint64, uint64, []string) {
 	statsByRoutines := [7]map[string]uint64{}
 	thingsWithObservations := [7][]string{}
@@ -53,8 +67,9 @@ func RunMetaStats(tldThings []things.TLDThing) (uint64, uint64, []string) {
 	for i := 0; i < len(times); i++ {
 		client := pool.GetClient()
 		wg.Add(1)
-		go func(stats *map[string]uint64, thingsWithObservations *[]string, dayIdx int, day [24][4][2]int32, dbClient *db.Client) {
+		go func(stats *map[string]uint64, things *[]string, dayIdx int, day [24][4][2]int32, dbClient *db.Client) {
 			defer wg.Done()
+			uniqueThings := newSet()
 			for hourIdx, hour := range day {
 				println("Processing day", dayIdx, "hour", hourIdx)
 				cells := [4][2]int32{}
@@ -82,6 +97,7 @@ func RunMetaStats(tldThings []things.TLDThing) (uint64, uint64, []string) {
 						// println("Calc Cycles")
 					}
 					thingName := thingsByDatastreamId[datastream_id]
+					uniqueThings.add(thingName)
 					if datastream_id == datastreamsByThingName[thingName]["primary_signal"] {
 						(*stats)["ps_observation_count"]++
 					} else if datastream_id == datastreamsByThingName[thingName]["cycle_second"] {
@@ -103,6 +119,9 @@ func RunMetaStats(tldThings []things.TLDThing) (uint64, uint64, []string) {
 				// println("Elapsed time in seconds: ", elapsed.Seconds())
 			}
 			dbClient.Close()
+			for thing, _ := range uniqueThings.list {
+				*things = append(*things, thing)
+			}
 		}(&statsByRoutines[i], &thingsWithObservations[i], i, times[i], client)
 	}
 
