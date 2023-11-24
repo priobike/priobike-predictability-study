@@ -111,3 +111,16 @@ func (thingsProvider *ThingsProvider) FilterOnlySecondarySignalAndCycleSecondDat
 		thingsProvider.Things[i].Datastreams = datastreams
 	}
 }
+
+func (thingsProvider *ThingsProvider) FilterOnlyPrimarySignalSecondarySignalAndCycleSecondDatastreams() {
+	for i, thing := range thingsProvider.Things {
+		datastreams := []Datastream{}
+		for _, datastream := range thing.Datastreams {
+			layerName := &datastream.Properties.LayerName
+			if *layerName == "primary_signal" || *layerName == "secondary_signal" || *layerName == "cycle_second" {
+				datastreams = append(datastreams, datastream)
+			}
+		}
+		thingsProvider.Things[i].Datastreams = datastreams
+	}
+}
