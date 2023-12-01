@@ -4,6 +4,7 @@ import (
 	// "time"
 	"encoding/json"
 	"os"
+	"strings"
 	"sync"
 
 	"studies/db"
@@ -172,10 +173,21 @@ func RunMeta() {
 	psObservationCountTotal := uint64(0)
 	csObservationCountTotal := uint64(0)
 	thingsWithObservationsTotal := []string{}
+	intersectionsWithObservationsTotal := []string{}
 
 	psObservationCount, csObservationCount, thingsWithObservations := RunMetaStats(tldThingsPrimary)
 
 	thingsWithObservationsTotal = append(thingsWithObservationsTotal, thingsWithObservations...)
+
+	for _, thing := range thingsWithObservations {
+		intersection_name := strings.Replace(thing, "_primary", "", 1)
+		intersection_name = strings.Replace(intersection_name, "_secondary", "", 1)
+		intersection_name = strings.Split(intersection_name, "_")[0]
+
+		if !stringInSlice(intersectionsWithObservationsTotal, intersection_name) {
+			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, thing)
+		}
+	}
 
 	psObservationCountTotal += psObservationCount
 	csObservationCountTotal += csObservationCount
@@ -192,13 +204,24 @@ func RunMeta() {
 		}
 	}
 
+	for _, thing := range thingsWithObservations {
+		intersection_name := strings.Replace(thing, "_primary", "", 1)
+		intersection_name = strings.Replace(intersection_name, "_secondary", "", 1)
+		intersection_name = strings.Split(intersection_name, "_")[0]
+
+		if !stringInSlice(intersectionsWithObservationsTotal, intersection_name) {
+			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, thing)
+		}
+	}
+
 	psObservationCountTotal += psObservationCount
 	csObservationCountTotal += csObservationCount
 
 	meta_stats := map[string]uint64{
-		"ps_observation_count_total": psObservationCountTotal,
-		"cs_observation_count_total": csObservationCountTotal,
-		"things_with_observations":   uint64(len(thingsWithObservationsTotal)),
+		"ps_observation_count_total":      psObservationCountTotal,
+		"cs_observation_count_total":      csObservationCountTotal,
+		"things_with_observations":        uint64(len(thingsWithObservationsTotal)),
+		"intersections_with_observations": uint64(len(intersectionsWithObservationsTotal)),
 	}
 
 	// Output processed things as json file
