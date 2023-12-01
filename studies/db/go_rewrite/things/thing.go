@@ -78,6 +78,8 @@ type Thing struct {
 	MetricsRelativeGreenDistance [7][24]float64
 	MetricsSP                    [7][24]float64
 	MedianShifts                 [7][24]float64
+	ShiftsSum                    [7][24]float64
+	MedianShiftsMedianDeviation  [7][24]float64
 	MedianGreenLengths           [7][24]float64
 	Results                      [7][24][]int8
 }
@@ -424,11 +426,27 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 
 	if len(totalGreenDiffs) == 0 {
 		thing.MedianShifts[day][hour] = -999999
+		thing.ShiftsSum[day][hour] = -999999
+		thing.MedianShiftsMedianDeviation[day][hour] = -999999
 	} else {
+		sum := 0.0
+		for _, diff := range totalGreenDiffs {
+			sum += diff
+		}
+		thing.ShiftsSum[day][hour] = sum
 		medianShift, err := stats.Median(totalGreenDiffs)
 		if err != nil {
 			panic(err)
 		}
+		deviationsFromMedian := make([]float64, 0)
+		for _, diff := range totalGreenDiffs {
+			deviationsFromMedian = append(deviationsFromMedian, math.Abs(diff-medianShift))
+		}
+		medianDeviation, err := stats.Median(deviationsFromMedian)
+		if err != nil {
+			panic(err)
+		}
+		thing.MedianShiftsMedianDeviation[day][hour] = medianDeviation
 		thing.MedianShifts[day][hour] = medianShift
 	}
 
