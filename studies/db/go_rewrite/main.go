@@ -1,7 +1,7 @@
 package main
 
 import (
-	"studies/things"
+	"studies/runner"
 )
 
 func main() {
@@ -11,9 +11,10 @@ func main() {
 	// Wait forever.
 	// select {}
 
-	tp := things.NewThingsProvider(false)
+	/* tp := things.NewThingsProvider(false)
 	tp.FilterOnlyPrimarySignalSecondarySignalAndCycleSecondDatastreams()
 	tldThings := tp.Things
-	println("Processing", len(tldThings), "things")
+	println("Processing", len(tldThings), "things") */
 
+	runner.Run()
 }

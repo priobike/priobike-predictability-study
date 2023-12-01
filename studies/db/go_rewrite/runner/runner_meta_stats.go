@@ -180,12 +180,10 @@ func RunMeta() {
 	thingsWithObservationsTotal = append(thingsWithObservationsTotal, thingsWithObservations...)
 
 	for _, thing := range thingsWithObservations {
-		intersection_name := strings.Replace(thing, "_primary", "", 1)
-		intersection_name = strings.Replace(intersection_name, "_secondary", "", 1)
-		intersection_name = strings.Split(intersection_name, "_")[0]
+		intersection_name := strings.Split(thing, "_")[0]
 
 		if !stringInSlice(intersectionsWithObservationsTotal, intersection_name) {
-			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, thing)
+			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, intersection_name)
 		}
 	}
 
@@ -205,12 +203,10 @@ func RunMeta() {
 	}
 
 	for _, thing := range thingsWithObservations {
-		intersection_name := strings.Replace(thing, "_primary", "", 1)
-		intersection_name = strings.Replace(intersection_name, "_secondary", "", 1)
-		intersection_name = strings.Split(intersection_name, "_")[0]
+		intersection_name := strings.Split(thing, "_")[0]
 
 		if !stringInSlice(intersectionsWithObservationsTotal, intersection_name) {
-			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, thing)
+			intersectionsWithObservationsTotal = append(intersectionsWithObservationsTotal, intersection_name)
 		}
 	}
 
