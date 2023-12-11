@@ -79,7 +79,9 @@ type Thing struct {
 	MetricsSP                    [7][24]float64
 	MedianShifts                 [7][24]float64
 	ShiftsSum                    [7][24]float64
+	ShiftsSumZeroCount           [7][24]int
 	MedianShiftsMedianDeviation  [7][24]float64
+	MedianShiftsDeviationZero	 [7][24]float64
 	MedianGreenLengths           [7][24]float64
 	Results                      [7][24][]int8
 }
@@ -372,6 +374,9 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 	greenLengths := make([]float64, 0)
 	cycles := []cycle{}
 	uniqueResults := newResultsSet()
+	shiftSum := 0.0
+	shiftSumZeroCount := 0
+	previousGreenIndices := make([]int, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
 			for _, result := range cycle.results {
@@ -385,6 +390,9 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			}
 			if cycle.end != cellCycles[idx+1].start {
 				thing.GapsBetweenCyclesCount++
+
+				// Reset shift because there is a gap between the cycles which would cause the shift to be wrong.
+				shiftSum = 0.0
 				// There is a gap between the cycles
 				continue
 			}
@@ -392,12 +400,29 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 
 			maxGreenIndicesPerCycle := max(len(greenIndices), len(nextGreenIndices))
 
+			if len(greenIndices) >= len(previousGreenIndices) {
+				previousGreenIndices = greenIndices
+			}
+
 			for i := 0; i < maxGreenIndicesPerCycle; i++ {
-				if i >= len(greenIndices) || i >= len(nextGreenIndices) {
+				if i >= len(nextGreenIndices) {
+					continue
+				}
+				greenIndex := -2;
+				if i >= len(greenIndices) && i < len(previousGreenIndices) {
+					greenIndex = previousGreenIndices[i]
+				} else if i < len(greenIndices) {
+					greenIndex = greenIndices[i]
+				} else {
 					continue
 				}
 
-				totalGreenDiffs = append(totalGreenDiffs, float64(nextGreenIndices[i]-greenIndices[i]))
+				diff := float64(nextGreenIndices[i] - greenIndex)
+				shiftSum += diff
+				if diff != 0.0 && shiftSum == 0.0 {
+					shiftSumZeroCount++
+				}
+				totalGreenDiffs = append(totalGreenDiffs, diff)
 			}
 
 			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
@@ -428,6 +453,8 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		thing.MedianShifts[day][hour] = -999999
 		thing.ShiftsSum[day][hour] = -999999
 		thing.MedianShiftsMedianDeviation[day][hour] = -999999
+		thing.MedianShiftsDeviationZero[day][hour] = -999999
+		thing.ShiftsSumZeroCount[day][hour] = -999999
 	} else {
 		sum := 0.0
 		for _, diff := range totalGreenDiffs {
@@ -439,8 +466,13 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			panic(err)
 		}
 		deviationsFromMedian := make([]float64, 0)
+		deviationZeroCount := 0
 		for _, diff := range totalGreenDiffs {
-			deviationsFromMedian = append(deviationsFromMedian, math.Abs(diff-medianShift))
+			deviation := math.Abs(diff - medianShift)
+			if deviation == 0.0 {
+				deviationZeroCount++
+			}
+			deviationsFromMedian = append(deviationsFromMedian, deviation)
 		}
 		medianDeviation, err := stats.Median(deviationsFromMedian)
 		if err != nil {
@@ -448,6 +480,8 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		}
 		thing.MedianShiftsMedianDeviation[day][hour] = medianDeviation
 		thing.MedianShifts[day][hour] = medianShift
+		thing.MedianShiftsDeviationZero[day][hour] = float64(deviationZeroCount) / float64(len(totalGreenDiffs))
+		thing.ShiftsSumZeroCount[day][hour] = shiftSumZeroCount
 	}
 
 	if len(cycles) == 0 {
