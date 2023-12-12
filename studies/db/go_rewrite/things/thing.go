@@ -1,10 +1,19 @@
 package things
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
+	"math/cmplx"
 	"math/rand"
+	"os"
 	"sort"
 
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+
+	"github.com/davidkleiven/gosfft/sfft"
 	"github.com/montanaflynn/stats"
 )
 
@@ -30,6 +39,20 @@ var INVALID_STATE_TRANSITIONS = map[int8]map[int8]struct{}{
 var MAX_STATE_LENGTHS = map[int8]int8{
 	2: 6,
 	4: 2,
+}
+
+type greenShiftsSet struct {
+	list map[float64]struct{}
+}
+
+func (s *greenShiftsSet) add(v float64) {
+	s.list[v] = struct{}{}
+}
+
+func newGreenShiftsSet() *greenShiftsSet {
+	s := &greenShiftsSet{}
+	s.list = make(map[float64]struct{})
+	return s
 }
 
 type resultsSet struct {
@@ -74,16 +97,11 @@ type Thing struct {
 	TotalInvalidCycleMissingCount    int32
 
 	// Metrics
-	Metrics                      [7][24]float64
-	MetricsRelativeGreenDistance [7][24]float64
-	MetricsSP                    [7][24]float64
-	MedianShifts                 [7][24]float64
-	ShiftsSum                    [7][24]float64
-	ShiftsSumZeroCount           [7][24]int
-	MedianShiftsMedianDeviation  [7][24]float64
-	MedianShiftsDeviationZero	 [7][24]float64
-	MedianGreenLengths           [7][24]float64
-	Results                      [7][24][]int8
+	Metrics            [7][24]float64
+	MedianGreenLengths [7][24]float64
+	FourierFuzzyness   [7][24][4]float64
+	ShiftsFuzzyness    [7][24]float64
+	Results            [7][24][]int8
 }
 
 func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *Thing {
@@ -111,10 +129,9 @@ func NewThing(name string, validation bool, retrieveAllCycleCleanupStats bool) *
 	thing.TotalInvalidCycleTransitionCount = 0
 	thing.TotalInvalidCycleMissingCount = 0
 	thing.Metrics = [7][24]float64{}
-	thing.MetricsRelativeGreenDistance = [7][24]float64{}
-	thing.MetricsSP = [7][24]float64{}
-	thing.MedianShifts = [7][24]float64{}
 	thing.MedianGreenLengths = [7][24]float64{}
+	thing.FourierFuzzyness = [7][24][4]float64{}
+	thing.ShiftsFuzzyness = [7][24]float64{}
 	thing.Results = [7][24][]int8{}
 	return thing
 }
@@ -257,85 +274,6 @@ func (thing *Thing) phaseWiseDistance(cycle1 cycle, cycle2 cycle) float64 {
 	return distance
 }
 
-func (thing *Thing) getGreenRelativeDistance(cycle1 cycle, cycle2 cycle) *float64 {
-	distance := 0.0
-	length := max(len(cycle1.results), len(cycle2.results))
-	greenLength1 := 0.0
-	greenLength2 := 0.0
-	for i := 0; i < length; i++ {
-		if i >= len(cycle1.results) {
-			if cycle2.results[i] == 3 {
-				greenLength2 += 1.0
-				distance += 1.0
-			}
-			continue
-		}
-		if i >= len(cycle2.results) {
-			if cycle1.results[i] == 3 {
-				greenLength1 += 1.0
-				distance += 1.0
-			}
-			continue
-		}
-		if cycle1.results[i] == 3 {
-			greenLength1 += 1.0
-		}
-		if cycle2.results[i] == 3 {
-			greenLength2 += 1.0
-		}
-		if cycle1.results[i] != cycle2.results[i] && (cycle1.results[i] == 3 || cycle2.results[i] == 3) {
-			distance += 1.0
-		}
-	}
-
-	maxGreenLength := max(greenLength1, greenLength2)
-	if maxGreenLength == 0.0 {
-		return nil
-	}
-	relativeDistance := distance / maxGreenLength
-
-	return &relativeDistance
-}
-
-func (thing *Thing) getGreenProbabilities(cycles []cycle) []float64 {
-	probabilities := make([]float64, 0)
-	maxLength := 0
-	for _, cycle := range cycles {
-		if len(cycle.results) > maxLength {
-			maxLength = len(cycle.results)
-		}
-	}
-	for i := 0; i < maxLength; i++ {
-		greenCount := 0
-		cyclesWithThatLengthCount := 0
-		for _, cycle := range cycles {
-			if i >= len(cycle.results) {
-				continue
-			}
-			cyclesWithThatLengthCount++
-			if cycle.results[i] == 3 {
-				greenCount++
-			}
-		}
-		probabilities = append(probabilities, float64(greenCount)/float64(cyclesWithThatLengthCount))
-	}
-
-	return probabilities
-}
-
-func (thing *Thing) getGreenReliabilities(greenProbabilities []float64) []float64 {
-	reliabilities := make([]float64, 0)
-	for _, probability := range greenProbabilities {
-		if probability > 0.5 {
-			reliabilities = append(reliabilities, 1.0-probability)
-		} else {
-			reliabilities = append(reliabilities, probability)
-		}
-	}
-
-	return reliabilities
-}
-
 func (thing *Thing) getGreenIndices(cycle cycle) []int {
 	// 3 = green
 	// Looking for the indices where the result changes from something else to green or from green to something else.
@@ -367,16 +305,173 @@ func (thing *Thing) getGreenLength(cycle cycle) float64 {
 	return greenLength
 }
 
+func (thing *Thing) CalculateFourierFuzyness(day int, hour int, cellIdx int, cellStartTime int32, cellEndTime int32) {
+	if len(thing.cycles[cellIdx]) == 0 {
+		thing.FourierFuzzyness[day][hour][cellIdx] = -1.0
+		return
+	}
+
+	denseGreenStates := make([]float64, 0)
+	previousEnd := int32(0)
+	for idx, cycle := range thing.cycles[cellIdx] {
+		if idx == 0 && cycle.start != cellStartTime {
+			timeDiff := cycle.start - cellStartTime
+			for i := int32(0); i < timeDiff; i++ {
+				denseGreenStates = append(denseGreenStates, 0)
+			}
+		}
+		if previousEnd != 0 && previousEnd != cycle.start {
+			timeDiff := cycle.start - previousEnd
+			for i := int32(0); i < timeDiff; i++ {
+				denseGreenStates = append(denseGreenStates, 0)
+			}
+		}
+		for _, result := range cycle.results {
+			if result == 3 {
+				denseGreenStates = append(denseGreenStates, 1)
+			} else {
+				denseGreenStates = append(denseGreenStates, 0)
+			}
+		}
+		if idx == len(thing.cycles[cellIdx])-1 && cycle.end != cellEndTime {
+			timeDiff := cellEndTime - cycle.end
+			for i := int32(0); i < timeDiff; i++ {
+				denseGreenStates = append(denseGreenStates, 0)
+			}
+		}
+		previousEnd = cycle.end
+	}
+
+	if len(denseGreenStates) != 60*60 {
+		println("Cell start time: ", cellStartTime)
+		println("Cell end time: ", cellEndTime)
+		println("Cycle count: ", len(thing.cycles[cellIdx]))
+		println("Cycles: ")
+		for _, cycle := range thing.cycles[cellIdx] {
+			println("Start: ", cycle.start)
+			println("End: ", cycle.end)
+			for _, result := range cycle.results {
+				print(result)
+			}
+			println(" ")
+		}
+		panic("Length of dense green states is not 60*60. Length: " + fmt.Sprint(len(denseGreenStates)))
+	}
+
+	fft := sfft.NewFFT1(len(denseGreenStates))
+	ftData := fft.FFT(denseGreenStates)
+	ftAmp := make([]float64, len(denseGreenStates)/2+1)
+	for i := range ftData {
+		ftAmp[i] = cmplx.Abs(ftData[i])
+	}
+
+	fuzzyness, err := stats.Mean(ftAmp)
+	if err != nil {
+		panic(err)
+	}
+
+	thing.FourierFuzzyness[day][hour][cellIdx] = fuzzyness
+
+	denseGreenStatesString := ""
+	for _, denseGreenState := range denseGreenStates {
+		denseGreenStatesString += fmt.Sprint(denseGreenState)
+	}
+
+	cyclesDebugStruct := make([]struct {
+		Start   int32
+		End     int32
+		Results string
+	}, 0)
+	for _, cycle := range thing.cycles[cellIdx] {
+		cyclesDebugStruct = append(cyclesDebugStruct, struct {
+			Start   int32
+			End     int32
+			Results string
+		}{cycle.start, cycle.end, fmt.Sprint(cycle.results)})
+	}
+
+	debugMetaStruct := struct {
+		Name             string
+		Day              int
+		Hour             int
+		CellIdx          int
+		CellStart        int32
+		CellEnd          int32
+		Fuzzyness        float64
+		DenseGreenStates string
+		Cycles           []struct {
+			Start   int32
+			End     int32
+			Results string
+		}
+	}{
+		Name:             thing.name,
+		Day:              day,
+		Hour:             hour,
+		CellIdx:          cellIdx,
+		CellStart:        cellStartTime,
+		CellEnd:          cellEndTime,
+		Fuzzyness:        fuzzyness,
+		DenseGreenStates: denseGreenStatesString,
+		Cycles:           cyclesDebugStruct,
+	}
+
+	file, _ := json.MarshalIndent(debugMetaStruct, "", " ")
+	path := "things/outputs/" + thing.name + "_" + fmt.Sprint(day) + "_" + fmt.Sprint(hour) + "_" + fmt.Sprint(cellIdx) + ".json"
+	_ = os.WriteFile(path, file, 0644)
+
+	// Plot the signal and the result
+	pltSignal := plot.New()
+	pltSignal.X.Label.Text = "Time (s)"
+	pltSignal.Y.Label.Text = "Amplitude"
+	pts := make(plotter.XYs, len(denseGreenStates))
+	for i := range denseGreenStates {
+		pts[i] = plotter.XY{X: float64(i), Y: denseGreenStates[i]}
+	}
+
+	l, err := plotter.NewLine(pts)
+	if err != nil {
+		panic(err)
+	}
+	pltSignal.Add(l)
+	// Plot the frequency spectrum
+	pltFreq := plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	pltFreq.X.Label.Text = "Frequency (Hz)"
+	pltFreq.Y.Label.Text = "Amplitude"
+	freqData := make(plotter.XYs, len(ftAmp))
+	for i := range ftAmp {
+		freqData[i] = plotter.XY{X: fft.Freq(i), Y: ftAmp[i]}
+	}
+
+	l, err = plotter.NewLine(freqData)
+	if err != nil {
+		panic(err)
+	}
+	pltFreq.Add(l)
+
+	// Save result
+	signal_fig_path := "things/outputs/" + thing.name + "_" + fmt.Sprint(day) + "_" + fmt.Sprint(hour) + "_" + fmt.Sprint(cellIdx) + "_signal.png"
+	if err := pltSignal.Save(4*vg.Inch, 4*vg.Inch, signal_fig_path); err != nil {
+		panic(err)
+	}
+
+	freq_fig_path := "things/outputs/" + thing.name + "_" + fmt.Sprint(day) + "_" + fmt.Sprint(hour) + "_" + fmt.Sprint(cellIdx) + "_freq.png"
+	if err := pltFreq.Save(4*vg.Inch, 4*vg.Inch, freq_fig_path); err != nil {
+		panic(err)
+	}
+}
+
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
-	relativeGreenDistances := make([]float64, 0)
-	totalGreenDiffs := make([]float64, 0)
 	greenLengths := make([]float64, 0)
+	greenShiftsSet := newGreenShiftsSet()
 	cycles := []cycle{}
+	totalGreenShiftCount := 0
 	uniqueResults := newResultsSet()
-	shiftSum := 0.0
-	shiftSumZeroCount := 0
-	previousGreenIndices := make([]int, 0)
 	for _, cellCycles := range thing.cycles {
 		for idx, cycle := range cellCycles {
 			for _, result := range cycle.results {
@@ -390,45 +485,40 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			}
 			if cycle.end != cellCycles[idx+1].start {
 				thing.GapsBetweenCyclesCount++
-
-				// Reset shift because there is a gap between the cycles which would cause the shift to be wrong.
-				shiftSum = 0.0
 				// There is a gap between the cycles
 				continue
 			}
-			nextGreenIndices := thing.getGreenIndices(cellCycles[idx+1])
-
-			maxGreenIndicesPerCycle := max(len(greenIndices), len(nextGreenIndices))
-
-			if len(greenIndices) >= len(previousGreenIndices) {
-				previousGreenIndices = greenIndices
-			}
-
-			for i := 0; i < maxGreenIndicesPerCycle; i++ {
-				if i >= len(nextGreenIndices) {
-					continue
-				}
-				greenIndex := -2;
-				if i >= len(greenIndices) && i < len(previousGreenIndices) {
-					greenIndex = previousGreenIndices[i]
-				} else if i < len(greenIndices) {
-					greenIndex = greenIndices[i]
-				} else {
-					continue
-				}
-
-				diff := float64(nextGreenIndices[i] - greenIndex)
-				shiftSum += diff
-				if diff != 0.0 && shiftSum == 0.0 {
-					shiftSumZeroCount++
-				}
-				totalGreenDiffs = append(totalGreenDiffs, diff)
-			}
 
 			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
-			relativeDistance := thing.getGreenRelativeDistance(cycle, cellCycles[idx+1])
-			if relativeDistance != nil {
-				relativeGreenDistances = append(relativeGreenDistances, *relativeDistance)
+
+			nextGreenIndices := thing.getGreenIndices(cellCycles[idx+1])
+			maxGreenIndicesPerCycle := max(len(greenIndices), len(nextGreenIndices))
+
+			for i := 0; i < maxGreenIndicesPerCycle; i += 2 {
+				totalGreenShiftCount++
+
+				if i >= len(greenIndices)-1 {
+					diff1 := nextGreenIndices[i]
+					diff2 := nextGreenIndices[i+1]
+					diffMean := (float64(diff1) + float64(diff2)) / 2.0
+					greenShiftsSet.add(diffMean)
+					continue
+				}
+
+				if i >= len(nextGreenIndices)-1 {
+					diff1 := greenIndices[i]
+					diff2 := greenIndices[i+1]
+					diffMean := (float64(diff1) + float64(diff2)) / 2.0
+					greenShiftsSet.add(diffMean)
+					continue
+				}
+
+				diff1 := float64(nextGreenIndices[i] - greenIndices[i])
+				diff2 := float64(nextGreenIndices[i+1] - greenIndices[i+1])
+
+				diffMean := (diff1 + diff2) / 2.0
+
+				greenShiftsSet.add(diffMean)
 			}
 		}
 	}
@@ -438,6 +528,55 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		results = append(results, result)
 	}
 	thing.Results[day][hour] = results
+
+	greenShifts := []float64{}
+	for greenShift := range greenShiftsSet.list {
+		greenShifts = append(greenShifts, greenShift)
+	}
+	if len(greenShifts) == 0 {
+		thing.ShiftsFuzzyness[day][hour] = -1.0
+	} else {
+		shiftsFuzzyness := float64(len(greenShifts)) / float64(totalGreenShiftCount)
+		thing.ShiftsFuzzyness[day][hour] = shiftsFuzzyness
+
+		/* cyclesDebugStruct := make([]struct {
+			Start   int32
+			End     int32
+			Results string
+		}, 0)
+		for _, cycle := range cycles {
+			cyclesDebugStruct = append(cyclesDebugStruct, struct {
+				Start   int32
+				End     int32
+				Results string
+			}{cycle.start, cycle.end, fmt.Sprint(cycle.results)})
+		}
+		debugMetaStruct := struct {
+			Name             string
+			Day              int
+			Hour             int
+			CellIdx          int
+			CellStart        int32
+			CellEnd          int32
+			Fuzzyness        float64
+			DenseGreenStates string
+			Cycles           []struct {
+				Start   int32
+				End     int32
+				Results string
+			}
+		}{
+			Name:      thing.name,
+			Day:       day,
+			Hour:      hour,
+			Fuzzyness: shiftsFuzzyness,
+			Cycles:    cyclesDebugStruct,
+		}
+
+		file, _ := json.MarshalIndent(debugMetaStruct, "", " ")
+		path := "things/outputs/" + thing.name + "_" + fmt.Sprint(day) + "_" + fmt.Sprint(hour) + ".json"
+		_ = os.WriteFile(path, file, 0644) */
+	}
 
 	if len(greenLengths) == 0 {
 		thing.MedianGreenLengths[day][hour] = -1.0
@@ -449,63 +588,6 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		thing.MedianGreenLengths[day][hour] = medianGreenLength
 	}
 
-	if len(totalGreenDiffs) == 0 {
-		thing.MedianShifts[day][hour] = -999999
-		thing.ShiftsSum[day][hour] = -999999
-		thing.MedianShiftsMedianDeviation[day][hour] = -999999
-		thing.MedianShiftsDeviationZero[day][hour] = -999999
-		thing.ShiftsSumZeroCount[day][hour] = -999999
-	} else {
-		sum := 0.0
-		for _, diff := range totalGreenDiffs {
-			sum += diff
-		}
-		thing.ShiftsSum[day][hour] = sum
-		medianShift, err := stats.Median(totalGreenDiffs)
-		if err != nil {
-			panic(err)
-		}
-		deviationsFromMedian := make([]float64, 0)
-		deviationZeroCount := 0
-		for _, diff := range totalGreenDiffs {
-			deviation := math.Abs(diff - medianShift)
-			if deviation == 0.0 {
-				deviationZeroCount++
-			}
-			deviationsFromMedian = append(deviationsFromMedian, deviation)
-		}
-		medianDeviation, err := stats.Median(deviationsFromMedian)
-		if err != nil {
-			panic(err)
-		}
-		thing.MedianShiftsMedianDeviation[day][hour] = medianDeviation
-		thing.MedianShifts[day][hour] = medianShift
-		thing.MedianShiftsDeviationZero[day][hour] = float64(deviationZeroCount) / float64(len(totalGreenDiffs))
-		thing.ShiftsSumZeroCount[day][hour] = shiftSumZeroCount
-	}
-
-	if len(cycles) == 0 {
-		thing.MetricsSP[day][hour] = -1.0
-	} else {
-		greenProbabilites := thing.getGreenProbabilities(cycles)
-		greenReliabilites := thing.getGreenReliabilities(greenProbabilites)
-		medianGreenReliability, err := stats.Median(greenReliabilites)
-		if err != nil {
-			panic(err)
-		}
-		thing.MetricsSP[day][hour] = medianGreenReliability
-	}
-
-	if len(relativeGreenDistances) == 0 {
-		thing.MetricsRelativeGreenDistance[day][hour] = -1.0
-	} else {
-		medianRelativeGreenDistance, err := stats.Median(relativeGreenDistances)
-		if err != nil {
-			panic(err)
-		}
-		thing.MetricsRelativeGreenDistance[day][hour] = medianRelativeGreenDistance
-	}
-
 	if len(distances) == 0 {
 		thing.Metrics[day][hour] = -1.0
 	} else {
@@ -515,6 +597,7 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 		}
 		thing.Metrics[day][hour] = medianDistance
 	}
+
 	thing.cycles = [4][]cycle{
 		{},
 		{},

@@ -91,6 +91,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 						currentCellIdx++
 						for _, thing := range *things {
 							thing.CalcCycles(currentCellIdx)
+							// thing.CalculateFourierFuzyness(dayIdx, hourIdx, currentCellIdx, cells[currentCellIdx-1][0], cells[currentCellIdx-1][1])
 						}
 						// println("Calc Cycles")
 					}
@@ -115,6 +116,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 				rows.Close()
 				for _, thing := range *things {
 					thing.CalcCycles(currentCellIdx)
+					// thing.CalculateFourierFuzyness(dayIdx, hourIdx, currentCellIdx, cells[currentCellIdx][0], cells[currentCellIdx][1])
 					thing.CalculateMetrics(dayIdx, hourIdx)
 				}
 				// println("Processed observations")
@@ -147,14 +149,7 @@ func RunCompleteCell(tldThings []things.TLDThing, suffixName string) map[string]
 				processedThings[name].TotalInvalidCycleTransitionCount += thing.TotalInvalidCycleTransitionCount
 				processedThings[name].TotalInvalidCycleMissingCount += thing.TotalInvalidCycleMissingCount
 				processedThings[name].Metrics[dayIdx] = thing.Metrics[dayIdx]
-				processedThings[name].MetricsSP[dayIdx] = thing.MetricsSP[dayIdx]
-				processedThings[name].MedianShifts[dayIdx] = thing.MedianShifts[dayIdx]
-				processedThings[name].ShiftsSum[dayIdx] = thing.ShiftsSum[dayIdx]
-				processedThings[name].ShiftsSumZeroCount[dayIdx] = thing.ShiftsSumZeroCount[dayIdx]
-				processedThings[name].MedianShiftsMedianDeviation[dayIdx] = thing.MedianShiftsMedianDeviation[dayIdx]
-				processedThings[name].MedianShiftsDeviationZero[dayIdx] = thing.MedianShiftsDeviationZero[dayIdx]
-				processedThings[name].MetricsRelativeGreenDistance[dayIdx] = thing.MetricsRelativeGreenDistance[dayIdx]
-				processedThings[name].MedianGreenLengths[dayIdx] = thing.MedianGreenLengths[dayIdx]
+				processedThings[name].ShiftsFuzzyness[dayIdx] = thing.ShiftsFuzzyness[dayIdx]
 				processedThings[name].Results[dayIdx] = thing.Results[dayIdx]
 			}
 		}
