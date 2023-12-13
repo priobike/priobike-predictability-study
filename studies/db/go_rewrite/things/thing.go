@@ -42,16 +42,16 @@ var MAX_STATE_LENGTHS = map[int8]int8{
 }
 
 type greenShiftsSet struct {
-	list map[float64]struct{}
+	list map[int64]struct{}
 }
 
-func (s *greenShiftsSet) add(v float64) {
+func (s *greenShiftsSet) add(v int64) {
 	s.list[v] = struct{}{}
 }
 
 func newGreenShiftsSet() *greenShiftsSet {
 	s := &greenShiftsSet{}
-	s.list = make(map[float64]struct{})
+	s.list = make(map[int64]struct{})
 	return s
 }
 
@@ -465,6 +465,27 @@ func (thing *Thing) CalculateFourierFuzyness(day int, hour int, cellIdx int, cel
 	}
 }
 
+func (thing *Thing) GetDurationsBetweenGreenPhases(results []int8) []int64 {
+	indexOfEndOfLastGreen := -1
+	durationsBetweenGreenphases := make([]int64, 0)
+	previousResult := int8(-1)
+	for idx, result := range results {
+		if previousResult == 3 && result != 3 {
+			// End of green phase
+			indexOfEndOfLastGreen = idx - 1
+		} else if previousResult != 3 && result == 3 {
+			// Start of green phase
+			if indexOfEndOfLastGreen != -1 {
+				durationsBetweenGreenphases = append(durationsBetweenGreenphases, int64(idx-indexOfEndOfLastGreen))
+			}
+		}
+
+		previousResult = result
+	}
+
+	return durationsBetweenGreenphases
+}
+
 func (thing *Thing) CalculateMetrics(day int, hour int) {
 	distances := make([]float64, 0)
 	greenLengths := make([]float64, 0)
@@ -473,52 +494,39 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 	totalGreenShiftCount := 0
 	uniqueResults := newResultsSet()
 	for _, cellCycles := range thing.cycles {
+		continuousResults := make([]int8, 0)
 		for idx, cycle := range cellCycles {
 			for _, result := range cycle.results {
 				uniqueResults.add(result)
+				continuousResults = append(continuousResults, result)
 			}
 			cycles = append(cycles, cycle)
-			greenIndices := thing.getGreenIndices(cycle)
 			greenLengths = append(greenLengths, thing.getGreenLength(cycle))
 			if idx >= len(cellCycles)-1 {
 				break
 			}
+			// There is a gap between the cycles
 			if cycle.end != cellCycles[idx+1].start {
 				thing.GapsBetweenCyclesCount++
-				// There is a gap between the cycles
+
+				durationsBetweenGreenphases := thing.GetDurationsBetweenGreenPhases(continuousResults)
+				for _, duration := range durationsBetweenGreenphases {
+					greenShiftsSet.add(duration)
+					totalGreenShiftCount++
+				}
+
+				continuousResults = make([]int8, 0)
 				continue
 			}
 
 			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
+		}
 
-			nextGreenIndices := thing.getGreenIndices(cellCycles[idx+1])
-			maxGreenIndicesPerCycle := max(len(greenIndices), len(nextGreenIndices))
-
-			for i := 0; i < maxGreenIndicesPerCycle; i += 2 {
+		if len(continuousResults) != 0 {
+			durationsBetweenGreenphases := thing.GetDurationsBetweenGreenPhases(continuousResults)
+			for _, duration := range durationsBetweenGreenphases {
+				greenShiftsSet.add(duration)
 				totalGreenShiftCount++
-
-				if i >= len(greenIndices)-1 {
-					diff1 := nextGreenIndices[i]
-					diff2 := nextGreenIndices[i+1]
-					diffMean := (float64(diff1) + float64(diff2)) / 2.0
-					greenShiftsSet.add(diffMean)
-					continue
-				}
-
-				if i >= len(nextGreenIndices)-1 {
-					diff1 := greenIndices[i]
-					diff2 := greenIndices[i+1]
-					diffMean := (float64(diff1) + float64(diff2)) / 2.0
-					greenShiftsSet.add(-diffMean)
-					continue
-				}
-
-				diff1 := float64(nextGreenIndices[i] - greenIndices[i])
-				diff2 := float64(nextGreenIndices[i+1] - greenIndices[i+1])
-
-				diffMean := (diff1 + diff2) / 2.0
-
-				greenShiftsSet.add(diffMean)
 			}
 		}
 	}
@@ -531,7 +539,7 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 
 	greenShifts := []float64{}
 	for greenShift := range greenShiftsSet.list {
-		greenShifts = append(greenShifts, greenShift)
+		greenShifts = append(greenShifts, float64(greenShift))
 	}
 	if len(greenShifts) == 0 {
 		thing.ShiftsFuzzyness[day][hour] = -1.0
