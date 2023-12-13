@@ -509,7 +509,7 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 					diff1 := greenIndices[i]
 					diff2 := greenIndices[i+1]
 					diffMean := (float64(diff1) + float64(diff2)) / 2.0
-					greenShiftsSet.add(diffMean)
+					greenShiftsSet.add(-diffMean)
 					continue
 				}
 
