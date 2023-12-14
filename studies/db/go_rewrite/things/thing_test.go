@@ -1568,6 +1568,92 @@ func TestCalcMetric(t *testing.T) {
 		1,
 		1,
 	)
+
+	primarySignalObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 5, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 9, 29, 0, 5, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 9, 29, 0, 5, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 9, 29, 0, 5, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 9, 29, 0, 5, 45, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 0, 11, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 6, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 6, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 6, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 6, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 13, 0, 1, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 13, 0, 1, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 13, 0, 1, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 13, 0, 1, 45, 0, location).Unix()), 1},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 0, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 0, 12, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 0, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 0, 46, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 5, 0, 0, location).Unix()), 1},
+			{int32(time.Date(2023, 10, 20, 0, 5, 10, 0, location).Unix()), 4},
+			{int32(time.Date(2023, 10, 20, 0, 5, 15, 0, location).Unix()), 3},
+			{int32(time.Date(2023, 10, 20, 0, 5, 40, 0, location).Unix()), 2},
+			{int32(time.Date(2023, 10, 20, 0, 5, 46, 0, location).Unix()), 1},
+		},
+	}
+
+	cycleSecondObservations = [4][]Observation{
+		{
+			{int32(time.Date(2023, 9, 29, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 5, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 9, 29, 0, 6, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 6, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 6, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 13, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 13, 0, 2, 0, 0, location).Unix()), 0},
+		},
+		{
+			{int32(time.Date(2023, 10, 20, 0, 0, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 1, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 5, 0, 0, location).Unix()), 0},
+			{int32(time.Date(2023, 10, 20, 0, 6, 0, 0, location).Unix()), 0},
+		},
+	}
+
+	// Test that two cycles (second of cell 1 and 4) get removed and thus dont count into the shifts fuzzyness metric
+	checkShiftsFuzyness(
+		t,
+		primarySignalObservations,
+		cycleSecondObservations,
+		0.5,
+		1,
+		1,
+	)
 }
 
 func checkMetricSP(
