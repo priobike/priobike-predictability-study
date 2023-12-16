@@ -491,35 +491,44 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 	greenLengths := make([]float64, 0)
 	greenShiftsSet := newGreenShiftsSet()
 	cycles := []cycle{}
+	cyclesCutByCellsAndGaps := [][]cycle{}
 	totalGreenShiftCount := 0
 	uniqueResults := newResultsSet()
 	for _, cellCycles := range thing.cycles {
+		currentCycles := []cycle{}
 		continuousResults := make([]int8, 0)
-		for idx, cycle := range cellCycles {
-			for _, result := range cycle.results {
+		for idx, currentCycle := range cellCycles {
+			for _, result := range currentCycle.results {
 				uniqueResults.add(result)
 				continuousResults = append(continuousResults, result)
 			}
-			cycles = append(cycles, cycle)
-			greenLengths = append(greenLengths, thing.getGreenLength(cycle))
+			currentCycles = append(currentCycles, currentCycle)
+			cycles = append(cycles, currentCycle)
+			greenLengths = append(greenLengths, thing.getGreenLength(currentCycle))
 			if idx >= len(cellCycles)-1 {
 				break
 			}
 			// There is a gap between the cycles
-			if cycle.end != cellCycles[idx+1].start {
+			if currentCycle.end != cellCycles[idx+1].start {
 				thing.GapsBetweenCyclesCount++
 
-				durationsBetweenGreenphases := thing.GetDurationsBetweenGreenPhases(continuousResults)
-				for _, duration := range durationsBetweenGreenphases {
-					greenShiftsSet.add(duration)
-					totalGreenShiftCount++
+				if len(continuousResults) != 0 {
+					durationsBetweenGreenphases := thing.GetDurationsBetweenGreenPhases(continuousResults)
+					for _, duration := range durationsBetweenGreenphases {
+						greenShiftsSet.add(duration)
+						totalGreenShiftCount++
+					}
 				}
 
 				continuousResults = make([]int8, 0)
+				if len(currentCycles) != 0 {
+					cyclesCutByCellsAndGaps = append(cyclesCutByCellsAndGaps, currentCycles)
+					currentCycles = []cycle{}
+				}
 				continue
 			}
 
-			distances = append(distances, thing.phaseWiseDistance(cycle, cellCycles[idx+1]))
+			distances = append(distances, thing.phaseWiseDistance(currentCycle, cellCycles[idx+1]))
 		}
 
 		if len(continuousResults) != 0 {
@@ -529,7 +538,14 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 				totalGreenShiftCount++
 			}
 		}
+
+		if len(currentCycles) != 0 {
+			cyclesCutByCellsAndGaps = append(cyclesCutByCellsAndGaps, currentCycles)
+		}
 	}
+
+	IcyPD := -1.0
+	IgpTD := -1.0
 
 	results := []int8{}
 	for result := range uniqueResults.list {
@@ -546,6 +562,8 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 	} else {
 		shiftsFuzzyness := float64(len(greenShifts)) / float64(totalGreenShiftCount)
 		thing.ShiftsFuzzyness[day][hour] = shiftsFuzzyness
+
+		IgpTD = shiftsFuzzyness
 
 		/* cyclesDebugStruct := make([]struct {
 			Start   int32
@@ -604,6 +622,73 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			panic(err)
 		}
 		thing.Metrics[day][hour] = medianDistance
+
+		IcyPD = medianDistance
+	}
+
+	if IcyPD != -1.0 && IgpTD != -1.0 {
+		name := ""
+		if IcyPD < 5 && IgpTD < 0.1 && len(cycles) > 150 {
+			name = ""
+		} else if IcyPD < 5 && IgpTD >= 0.9 && len(cycles) > 150 {
+			name = ""
+		} else if IcyPD >= 70 && IgpTD < 0.1 && len(cycles) > 10 {
+			name = "bottom_right"
+		} else if IcyPD >= 70 && IgpTD >= 0.9 && len(cycles) > 50 {
+			name = "top_right"
+		}
+
+		if name != "" {
+			cyclesDebugStruct := make([][]struct {
+				Start   int32
+				End     int32
+				Results string
+			}, 0)
+			for _, cycles := range cyclesCutByCellsAndGaps {
+				cyclesDebugStructCell := make([]struct {
+					Start   int32
+					End     int32
+					Results string
+				}, 0)
+				for _, cycle := range cycles {
+					cyclesDebugStructCell = append(cyclesDebugStructCell, struct {
+						Start   int32
+						End     int32
+						Results string
+					}{cycle.start, cycle.end, fmt.Sprint(cycle.results)})
+				}
+				cyclesDebugStruct = append(cyclesDebugStruct, cyclesDebugStructCell)
+			}
+			debugMetaStruct := struct {
+				Name      string
+				Day       int
+				Hour      int
+				CellIdx   int
+				CellStart int32
+				CellEnd   int32
+				IgpTD     float64
+				IcyPD     float64
+				Cycles    [][]struct {
+					Start   int32
+					End     int32
+					Results string
+				}
+			}{
+				Name:   thing.name,
+				Day:    day,
+				Hour:   hour,
+				IgpTD:  IgpTD,
+				IcyPD:  IcyPD,
+				Cycles: cyclesDebugStruct,
+			}
+
+			name = name + "_" + thing.name + "_" + fmt.Sprint(day) + "_" + fmt.Sprint(hour) + ".json"
+
+			file, _ := json.MarshalIndent(debugMetaStruct, "", " ")
+			path := "things/case_studies/" + name
+			_ = os.WriteFile(path, file, 0644)
+		}
+
 	}
 
 	thing.cycles = [4][]cycle{
