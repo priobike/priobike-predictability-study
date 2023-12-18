@@ -632,9 +632,9 @@ func (thing *Thing) CalculateMetrics(day int, hour int) {
 			name = ""
 		} else if IcyPD < 5 && IgpTD >= 0.9 && len(cycles) > 150 {
 			name = ""
-		} else if IcyPD >= 70 && IgpTD < 0.1 && len(cycles) > 10 {
+		} else if IcyPD >= 25 && IgpTD < 0.1 && len(cycles) > 10 {
 			name = "bottom_right"
-		} else if IcyPD >= 70 && IgpTD >= 0.9 && len(cycles) > 50 {
+		} else if IcyPD >= 25 && IgpTD >= 0.9 && len(cycles) > 50 {
 			name = "top_right"
 		}
 
