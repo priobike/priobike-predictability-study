@@ -1,0 +1,24 @@
+{
+ "Name": "1644_4",
+ "Day": 6,
+ "Hour": 6,
+ "Metrics": 72,
+ "MedianGreenLengths": 13,
+ "MedianGreenLengthsContinuous": 0,
+ "ShiftsFuzzyness": 1,
+ "GreenPhaseCount": 0,
+ "Cycles": [
+  [
+   {
+    "Start": 1695442620,
+    "End": 1695442694,
+    "Results": "[3 3 2 2 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 4 3 3 3 3 3 3 3 3 3]"
+   },
+   {
+    "Start": 1695442694,
+    "End": 1695442725,
+    "Results": "[3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"
+   }
+  ]
+ ]
+}

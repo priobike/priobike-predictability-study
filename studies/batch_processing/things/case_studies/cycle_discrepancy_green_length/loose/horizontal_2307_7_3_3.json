@@ -1,0 +1,24 @@
+{
+ "Name": "2307_7",
+ "Day": 3,
+ "Hour": 3,
+ "Metrics": 0,
+ "MedianGreenLengths": 0,
+ "MedianGreenLengthsContinuous": 0,
+ "ShiftsFuzzyness": -1,
+ "GreenPhaseCount": 0,
+ "Cycles": [
+  [
+   {
+    "Start": 1696989476,
+    "End": 1696989536,
+    "Results": "[1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]"
+   },
+   {
+    "Start": 1696989536,
+    "End": 1696989596,
+    "Results": "[1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]"
+   }
+  ]
+ ]
+}

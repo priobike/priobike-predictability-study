@@ -1,0 +1,1 @@
+Case studies in `exact` folder lie directly on the corresponding patterns. Case studies in `loose` folder lie in the vicinity of the corresponding patterns.

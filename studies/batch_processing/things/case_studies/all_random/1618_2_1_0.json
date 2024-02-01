@@ -1,0 +1,40 @@
+{
+ "Name": "1618_2",
+ "Day": 1,
+ "Hour": 0,
+ "Metrics": -1,
+ "MedianGreenLengths": 6,
+ "MedianGreenLengthsContinuous": 6,
+ "ShiftsFuzzyness": -1,
+ "GreenPhaseCount": 4,
+ "Cycles": [
+  [
+   {
+    "Start": 1695592893,
+    "End": 1695592909,
+    "Results": "[3 3 3 3 3 3 0 0 0 0 0 0 0 0 0 0]"
+   }
+  ],
+  [
+   {
+    "Start": 1696197693,
+    "End": 1696197708,
+    "Results": "[3 3 3 3 3 3 0 0 0 0 0 0 0 0 0]"
+   }
+  ],
+  [
+   {
+    "Start": 1696802494,
+    "End": 1696802509,
+    "Results": "[3 3 3 3 3 3 0 0 0 0 0 0 0 0 0]"
+   }
+  ],
+  [
+   {
+    "Start": 1697407293,
+    "End": 1697407308,
+    "Results": "[3 3 3 3 3 3 0 0 0 0 0 0 0 0 0]"
+   }
+  ]
+ ]
+}

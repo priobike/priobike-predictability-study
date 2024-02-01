@@ -1,0 +1,3 @@
+- `all_random`: completely random selected case studies out of all hourly buckets
+- `cycle_discrepancy_green_length`: case studies out of certain areas of the cycle discrepancy <-> green length heatmap plot
+- `cycle_discrepancy_wait_time_diversity`: case studies out of certain areas of the cycle discrepancy <-> wait time diversity heatmap plot

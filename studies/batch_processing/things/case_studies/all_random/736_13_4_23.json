@@ -1,0 +1,26 @@
+{
+ "Name": "736_13",
+ "Day": 4,
+ "Hour": 23,
+ "Metrics": -1,
+ "MedianGreenLengths": 0,
+ "MedianGreenLengthsContinuous": -1,
+ "ShiftsFuzzyness": -1,
+ "GreenPhaseCount": 0,
+ "Cycles": [
+  [
+   {
+    "Start": 1696539975,
+    "End": 1696539993,
+    "Results": "[1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]"
+   }
+  ],
+  [
+   {
+    "Start": 1697749575,
+    "End": 1697749593,
+    "Results": "[1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]"
+   }
+  ]
+ ]
+}

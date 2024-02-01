@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  # Sink stack
+  sink:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    env_file: .env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+  postgres:
+    image: postgres:latest
+    hostname: postgres
+    env_file: .env
+    volumes:
+      - postgres-sink-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+
+volumes:
+  postgres-sink-data:
+    name: postgres-sink-data

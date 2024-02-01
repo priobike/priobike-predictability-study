@@ -1,0 +1,11 @@
+{
+ "Name": "706_16",
+ "Day": 1,
+ "Hour": 19,
+ "Metrics": -1,
+ "MedianGreenLengths": -1,
+ "MedianGreenLengthsContinuous": -1,
+ "ShiftsFuzzyness": -1,
+ "GreenPhaseCount": -1,
+ "Cycles": []
+}
